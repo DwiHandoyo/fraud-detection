@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Feast — regenerable from parquet via apply.sh + materialize.sh
+feature-store/feature_repo/data/online_store.db
+feature-store/feature_repo/data/registry.db
+feature-store/feature_repo/data/online_store.db-*
+feature-store/feature_repo/feature_store/
+
+# Great Expectations — regenerable from validate_dataset.py
+data-validation/gx/uncommitted/
+data-validation/gx/checkpoints/
+
+# Generated reports — regenerable
+data-validation/reports/data_docs/
+monitoring/reports/*.html
+monitoring/reports/*.json
+fairness/reports/*.html
+qa-tests/reports/*.html
+
+# Streamlit audit log
+ui/decisions.jsonl
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/

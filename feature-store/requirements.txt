@@ -1,0 +1,3 @@
+feast[sqlite]>=0.40
+pandas>=2.0
+pyarrow>=14

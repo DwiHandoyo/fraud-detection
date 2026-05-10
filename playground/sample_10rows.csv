@@ -1,0 +1,11 @@
+TransactionID,id_01,id_02,id_03,id_04,id_05,id_06,id_07,id_08,id_09,id_10,id_11,id_12,id_13,id_14,id_15,id_16,id_17,id_18,id_19,id_20,id_21,id_22,id_23,id_24,id_25,id_26,id_27,id_28,id_29,id_30,id_31,id_32,id_33,id_34,id_35,id_36,id_37,id_38,DeviceType,DeviceInfo
+2987004,0.0,70787.0,,,,,,,,,100.0,NotFound,,-480.0,New,NotFound,166.0,,542.0,144.0,,,,,,,,New,NotFound,Android 7.0,samsung browser 6.2,32.0,2220x1080,match_status:2,T,F,T,T,mobile,SAMSUNG SM-G892A Build/NRD90M
+2987008,-5.0,98945.0,,,0.0,-5.0,,,,,100.0,NotFound,49.0,-300.0,New,NotFound,166.0,,621.0,500.0,,,,,,,,New,NotFound,iOS 11.1.2,mobile safari 11.0,32.0,1334x750,match_status:1,T,F,F,T,mobile,iOS Device
+2987010,-5.0,191631.0,0.0,0.0,0.0,0.0,,,0.0,0.0,100.0,NotFound,52.0,,Found,Found,121.0,,410.0,142.0,,,,,,,,Found,Found,,chrome 62.0,,,,F,F,T,T,desktop,Windows
+2987011,-5.0,221832.0,,,0.0,-6.0,,,,,100.0,NotFound,52.0,,New,NotFound,225.0,,176.0,507.0,,,,,,,,New,NotFound,,chrome 62.0,,,,F,F,T,T,desktop,
+2987016,0.0,7460.0,0.0,0.0,1.0,0.0,,,0.0,0.0,100.0,NotFound,,-300.0,Found,Found,166.0,15.0,529.0,575.0,,,,,,,,Found,Found,Mac OS X 10_11_6,chrome 62.0,24.0,1280x800,match_status:2,T,F,T,T,desktop,MacOS
+2987017,-5.0,61141.0,3.0,0.0,3.0,0.0,,,3.0,0.0,100.0,NotFound,52.0,-300.0,Found,Found,166.0,18.0,529.0,600.0,,,,,,,,Found,Found,Windows 10,chrome 62.0,24.0,1366x768,match_status:2,T,F,T,T,desktop,Windows
+2987022,-15.0,,,,,,,,,,,NotFound,14.0,,,,,,,,,,,,,,,,,,,,,,,,,,,
+2987038,0.0,31964.0,0.0,0.0,0.0,-10.0,,,0.0,0.0,100.0,Found,,-300.0,Found,Found,166.0,15.0,352.0,533.0,,,,,,,,Found,Found,Android,chrome 62.0,32.0,1920x1080,match_status:2,T,F,T,T,mobile,
+2987040,-10.0,116098.0,0.0,0.0,0.0,0.0,,,0.0,0.0,100.0,NotFound,52.0,,Found,Found,121.0,,410.0,142.0,,,,,,,,Found,Found,,chrome 62.0,,,,F,F,T,T,desktop,Windows
+2987048,-5.0,257037.0,,,0.0,0.0,,,,,100.0,NotFound,52.0,,New,NotFound,225.0,,484.0,507.0,,,,,,,,New,NotFound,,chrome 62.0,,,,F,F,T,T,desktop,Windows

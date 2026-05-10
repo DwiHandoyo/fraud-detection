@@ -1,0 +1,24 @@
+# Model configuration. Swap models by editing this file — no code change needed.
+predictor:
+  type: lgbm
+  path: models/lgbm.pkl
+  version: "1.0"
+
+explainer:
+  type: ebm
+  path: models/ebm.pkl
+  version: "1.0"
+
+# Currently unused (LGBM uses on-the-fly factorize, EBM ingests raw values).
+# Kept here for when a fitted preprocessor for the full feature set is available.
+preprocessor:
+  path: models/preprocessor.pkl
+
+# Feast feature store. When enabled, /predict_by_id and /explain_by_id endpoints
+# look up features by transaction_id instead of receiving them in the request.
+feature_store:
+  enabled: true
+  repo_path: ../feature-store/feature_repo
+  service_name: identity_service
+
+threshold: 0.5

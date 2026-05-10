@@ -1,0 +1,11 @@
+{
+  "mode": "distillation",
+  "n_features": 25,
+  "n_train": 115386,
+  "n_val": 28847,
+  "train_seconds": 61.1,
+  "val_auc": 1.0,
+  "positive_rate": 0.5018,
+  "fidelity_pearson": 0.97,
+  "fidelity_auc": 0.9531
+}

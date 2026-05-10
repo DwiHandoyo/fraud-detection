@@ -1,0 +1,34 @@
+term,type,importance,pct,cumulative_pct
+id_30,single,24.1081,30.7,30.7
+id_14,single,15.5818,19.84,50.54
+id_35,single,6.5462,8.34,58.88
+id_18,single,5.3915,6.87,65.74
+id_05,single,4.843,6.17,71.91
+DeviceInfo,single,3.9075,4.98,76.89
+id_33,single,3.0247,3.85,80.74
+id_03,single,2.664,3.39,84.13
+id_31,single,1.7765,2.26,86.39
+id_13,single,1.7297,2.2,88.59
+id_17,single,1.3271,1.69,90.28
+id_15,single,1.2278,1.56,91.85
+id_32,single,0.9089,1.16,93.01
+id_04,single,0.7916,1.01,94.01
+id_05 & id_15,interaction,0.6335,0.81,94.82
+id_09,single,0.5045,0.64,95.46
+id_33 & id_04,interaction,0.476,0.61,96.07
+id_01 & id_04,interaction,0.4041,0.51,96.58
+id_33 & id_03,interaction,0.3694,0.47,97.05
+id_06 & id_04,interaction,0.3373,0.43,97.48
+id_19,single,0.2829,0.36,97.84
+id_06 & id_03,interaction,0.2746,0.35,98.19
+DeviceType,single,0.2405,0.31,98.5
+id_05 & id_04,interaction,0.2384,0.3,98.8
+id_02,single,0.1747,0.22,99.03
+id_05 & id_03,interaction,0.169,0.22,99.24
+id_06,single,0.1451,0.18,99.43
+id_34,single,0.1347,0.17,99.6
+id_01,single,0.1222,0.16,99.75
+id_37,single,0.0713,0.09,99.84
+id_38,single,0.0676,0.09,99.93
+id_36,single,0.0318,0.04,99.97
+id_08,single,0.0234,0.03,100.0
