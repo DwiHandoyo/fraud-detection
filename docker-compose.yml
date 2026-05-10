@@ -1,0 +1,41 @@
+# Top-level orchestration for local development demo.
+#
+# Usage:
+#   docker compose up -d
+#   open http://localhost:8501  (Streamlit UI)
+#   open http://localhost:8000/docs (FastAPI docs)
+#
+# Prereq: feature-store/feature_repo/data/ harus sudah punya
+#   identity.parquet, registry.db, online_store.db
+# Generate sekali sebelum docker compose:
+#   cd feature-store && python seed_data.py && ./apply.sh && ./materialize.sh
+
+services:
+  ml-service:
+    build: ./ml-service
+    container_name: fraud-ml
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount feature store (read-only) ke /feature-store/feature_repo
+      - ./feature-store/feature_repo:/feature-store/feature_repo:ro
+      - ./data-validation:/data-validation:ro
+    environment:
+      CONFIG_PATH: /app/config.yaml
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  ui:
+    build: ./ui
+    container_name: fraud-ui
+    ports:
+      - "8501:8501"
+    environment:
+      ML_SERVICE_URL: http://ml-service:8000
+    depends_on:
+      ml-service:
+        condition: service_healthy

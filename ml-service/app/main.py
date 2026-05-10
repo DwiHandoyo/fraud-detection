@@ -19,6 +19,7 @@ from .schemas import (
     TransactionInput,
 )
 from .settings import load_config
+from .validation import AVAILABLE as VALIDATION_AVAILABLE, get_validator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("ml-service")
@@ -39,6 +40,15 @@ if fs_cfg.get("enabled"):
 else:
     logger.info("feature store disabled")
 
+val_cfg = cfg.get("validation", {})
+validator = None
+if val_cfg.get("enabled") and VALIDATION_AVAILABLE:
+    validator = get_validator()
+    logger.info("request validation enabled (great_expectations)")
+else:
+    logger.info("request validation disabled (enabled=%s, available=%s)",
+                val_cfg.get("enabled"), VALIDATION_AVAILABLE)
+
 logger.info("predictor=%s/%s features=%d", predictor.name, predictor.version, len(predictor.feature_names))
 logger.info("explainer=%s/%s features=%d", explainer.name, explainer.version, len(explainer.feature_names))
 
@@ -54,6 +64,17 @@ def _to_df(req: TransactionInput) -> pd.DataFrame:
     return pd.DataFrame([req.model_dump(exclude_none=False)])
 
 
+def _validate_or_422(req: TransactionInput) -> None:
+    if validator is None:
+        return
+    payload = {k: v for k, v in req.model_dump().items() if v is not None}
+    if not payload:
+        return
+    ok, errors = validator.validate(payload)
+    if not ok:
+        raise HTTPException(status_code=422, detail={"validation_errors": errors})
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(
@@ -67,6 +88,7 @@ def health() -> HealthResponse:
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: TransactionInput) -> PredictResponse:
+    _validate_or_422(req)
     X = _to_df(req)
     proba = predictor.predict_proba(X)[0]
     return PredictResponse(
@@ -80,6 +102,7 @@ def predict(req: TransactionInput) -> PredictResponse:
 
 @app.post("/explain", response_model=ExplainResponse)
 def explain(req: TransactionInput) -> ExplainResponse:
+    _validate_or_422(req)
     X = _to_df(req)
     proba = explainer.predict_proba(X)[0]
     contribs_raw = explainer.explain(X)[0]

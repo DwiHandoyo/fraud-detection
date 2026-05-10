@@ -1,0 +1,68 @@
+{
+  "DeviceType": {
+    "demographic_parity_difference": 0.5387020963927946,
+    "demographic_parity_ratio": 0.01379923002951506,
+    "selection_rate_overall": 0.44064,
+    "selection_rate_per_group": {
+      "desktop": 0.3889115092290988,
+      "mobile": 0.5462397848350057,
+      "unknown": 0.007537688442211055
+    },
+    "group_size": {
+      "desktop": 29472,
+      "mobile": 19334,
+      "unknown": 1194
+    },
+    "interpretation": "FAIL \u2014 substantial disparate impact (DPR<0.60); review model"
+  },
+  "OS_family": {
+    "demographic_parity_difference": 0.8981827555097306,
+    "demographic_parity_ratio": 0.10181724449026937,
+    "selection_rate_overall": 0.44064,
+    "selection_rate_per_group": {
+      "Android": 1.0,
+      "Apple": 1.0,
+      "Linux": 1.0,
+      "Windows": 0.44159746935547645,
+      "other": 1.0,
+      "unknown": 0.10181724449026937
+    },
+    "group_size": {
+      "unknown": 23277,
+      "Windows": 12645,
+      "Apple": 11517,
+      "Android": 2175,
+      "Linux": 375,
+      "other": 11
+    },
+    "interpretation": "FAIL \u2014 substantial disparate impact (DPR<0.60); review model"
+  },
+  "Browser_family": {
+    "demographic_parity_difference": 0.7295317313349069,
+    "demographic_parity_ratio": 0.03327099826502039,
+    "selection_rate_overall": 0.44064,
+    "selection_rate_per_group": {
+      "chrome": 0.3245890436961391,
+      "edge": 0.028117913832199547,
+      "firefox": 0.4042207792207792,
+      "ie": 0.6193860147811256,
+      "opera": 0.08074534161490683,
+      "other": 0.5181159420289855,
+      "safari": 0.7546393353521236,
+      "samsung": 0.43963254593175854,
+      "unknown": 0.025107604017216643
+    },
+    "group_size": {
+      "chrome": 26341,
+      "safari": 12879,
+      "ie": 3518,
+      "firefox": 2464,
+      "edge": 2205,
+      "unknown": 1394,
+      "samsung": 762,
+      "other": 276,
+      "opera": 161
+    },
+    "interpretation": "FAIL \u2014 substantial disparate impact (DPR<0.60); review model"
+  }
+}

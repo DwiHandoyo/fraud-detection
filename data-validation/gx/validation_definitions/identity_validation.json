@@ -1,0 +1,22 @@
+{
+  "data": {
+    "asset": {
+      "id": "6c71546d-3449-40f7-81de-b3da27826905",
+      "name": "identity_asset"
+    },
+    "batch_definition": {
+      "id": "93e2f374-2d2d-4faa-b014-125725f4a4d6",
+      "name": "identity_batch"
+    },
+    "datasource": {
+      "id": "c037fa53-6c8d-4f3a-b39b-381f6936c2dd",
+      "name": "identity_pandas"
+    }
+  },
+  "id": "955b9ce7-dfad-46a7-bac5-2f76bfcd9244",
+  "name": "identity_validation",
+  "suite": {
+    "id": "30787d87-53c9-4d8b-ad0e-fd1c042a296a",
+    "name": "identity_dataset"
+  }
+}

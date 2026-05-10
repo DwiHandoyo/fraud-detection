@@ -33,6 +33,11 @@ tests/             pytest unit + integration tests
 The `_by_id` variants require a running feature store. See
 [../feature-store/README.md](../feature-store/README.md) for setup.
 
+When `validation.enabled: true` (default), `/predict` and `/explain` reject
+malformed payloads with HTTP 422 (negative TransactionAmt, invalid DeviceType,
+out-of-range timezone, etc.). Schema definitions live in
+[../data-validation/](../data-validation/).
+
 ## Run locally (no Docker)
 
 ```bash

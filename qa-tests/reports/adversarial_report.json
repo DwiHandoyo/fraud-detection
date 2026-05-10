@@ -1,0 +1,198 @@
+{
+  "n_baselines": 23,
+  "threshold": 0.5,
+  "results": {
+    "TransactionAmt": {
+      "-10%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "-5%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "-1%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+1%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+5%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+10%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      }
+    },
+    "id_02": {
+      "-10%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "-5%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "-1%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+1%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+5%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+10%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      }
+    },
+    "id_05": {
+      "-10%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "-5%": {
+        "flips": 1,
+        "total": 23,
+        "flip_rate": 0.043
+      },
+      "-1%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+1%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+5%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+10%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      }
+    },
+    "id_11": {
+      "-10%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "-5%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "-1%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+1%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+5%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+10%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      }
+    },
+    "id_19": {
+      "-10%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "-5%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "-1%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+1%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+5%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      },
+      "+10%": {
+        "flips": 0,
+        "total": 23,
+        "flip_rate": 0.0
+      }
+    },
+    "id_20": {
+      "-10%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "-5%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "-1%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+1%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+5%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      },
+      "+10%": {
+        "flips": 0,
+        "total": 0,
+        "flip_rate": null
+      }
+    }
+  }
+}

@@ -21,4 +21,9 @@ feature_store:
   repo_path: ../feature-store/feature_repo
   service_name: identity_service
 
+# Great Expectations request validation. When enabled, /predict and /explain
+# return 422 on invalid payloads (negative TransactionAmt, bad timezone, etc.).
+validation:
+  enabled: true
+
 threshold: 0.5

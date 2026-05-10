@@ -66,3 +66,21 @@ def test_explain_by_id_known():
     assert r.status_code == 200
     body = r.json()
     assert len(body["contributions"]) > 0
+
+
+def test_predict_rejects_negative_amount():
+    """Great Expectations validation should reject TransactionAmt < 0."""
+    r = client.post("/predict", json={"TransactionAmt": -50})
+    assert r.status_code == 422
+    body = r.json()
+    assert "validation_errors" in body["detail"]
+
+
+def test_predict_rejects_invalid_device_type():
+    r = client.post("/predict", json={"DeviceType": "tablet"})
+    assert r.status_code == 422
+
+
+def test_predict_rejects_out_of_range_timezone():
+    r = client.post("/predict", json={"id_14": 9999})
+    assert r.status_code == 422
