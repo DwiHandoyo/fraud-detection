@@ -61,6 +61,86 @@ cd ../qa-tests && locust -f load_test.py --host http://localhost:8000 \
     --html reports/load_test_report.html
 ```
 
+## Training
+
+Semua model dapat dilatih ulang dari data sumber. Output disimpan sebagai
+`.pkl` yang langsung dipakai oleh [ml-service](ml-service/) lewat
+[config.yaml](ml-service/config.yaml).
+
+### EBM explainer (glass-box)
+
+Script standalone — bisa langsung dijalankan, tidak butuh `train_transaction.csv`.
+
+```bash
+cd playground/ebm
+../.venv/bin/python train_ebm.py                 # mode default: distillation dari LGBM
+../.venv/bin/python train_ebm.py --top-n 50      # pakai top-50 fitur (default 25)
+
+# Kalau punya train_transaction.csv (real isFraud labels):
+../.venv/bin/python train_ebm.py \
+  --transaction-csv /path/to/train_transaction.csv
+```
+
+Output:
+- `playground/ebm/ebm_model.pkl` — model siap pakai
+- `playground/ebm/metrics.json` — AUC, fidelity vs LGBM teacher
+- (opsional) `playground/ebm/explain_ebm.py` — generate shape function plots & HTML
+
+Lihat [playground/ebm/README.md](playground/ebm/README.md) untuk detail.
+
+### Preprocessor (LabelEncoder + fillna pipeline)
+
+```bash
+cd playground/preprocessing
+../.venv/bin/python fit_preprocessor.py                        # identity-only mode
+../.venv/bin/python fit_preprocessor.py \
+  --full /path/to/train_transaction.csv                        # full features
+```
+
+Output: `playground/preprocessing/preprocessor.pkl` (~45 KB).
+
+Lihat [playground/preprocessing/README.md](playground/preprocessing/README.md).
+
+### LGBM predictor
+
+Saat ini training-nya di notebook (belum di-extract jadi `.py` standalone):
+[playground/2025-05-01_Model.ipynb](playground/2025-05-01_Model.ipynb).
+
+Butuh `train_transaction.csv` (~470 MB dari Kaggle) — tidak ada di repo.
+Output: `playground/lgbm_tuning.pkl` (~35 MB) yang dicopy ke
+`ml-service/models/lgbm.pkl`.
+
+```bash
+# Setelah menjalankan notebook
+cp playground/lgbm_tuning.pkl ml-service/models/lgbm.pkl
+```
+
+### Deploy model baru ke ml-service
+
+Setelah retraining, update artifacts dan restart service:
+
+```bash
+# Copy artifact baru
+cp playground/ebm/ebm_model.pkl ml-service/models/ebm.pkl
+cp playground/lgbm_tuning.pkl ml-service/models/lgbm.pkl
+cp playground/preprocessing/preprocessor.pkl ml-service/models/preprocessor.pkl
+
+# (Opsional) bump version di config.yaml supaya audit trail jelas
+# Edit ml-service/config.yaml: predictor.version: "1.1"
+
+# Rebuild + restart
+docker compose up -d --build
+```
+
+### Feature store re-materialize (setelah update training data)
+
+```bash
+cd feature-store
+../playground/.venv/bin/python seed_data.py     # CSV → parquet
+./apply.sh                                       # registry
+./materialize.sh                                 # online store
+```
+
 ## Arsitektur
 
 ```
