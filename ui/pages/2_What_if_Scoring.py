@@ -13,7 +13,6 @@ import streamlit as st
 from api_client import (
     explain_manual,
     log_decision,
-    predict_manual,
     render_explanation_chart,
     render_prediction_header,
 )
@@ -22,8 +21,24 @@ st.set_page_config(page_title="What-if Scoring", layout="wide")
 st.title("What-if Scoring")
 st.caption(
     "Audit / debug mode — isi fitur manual, lihat prediksi. "
-    "Field kosong akan diisi default (0.0 numeric / null categorical)."
+    "Menggunakan EBM (explainer) supaya perubahan fitur benar-benar terlihat."
 )
+
+with st.expander("Why are predictions different here vs Score by ID?", expanded=False):
+    st.markdown(
+        """
+        **What-if Scoring** memakai **EBM** (explainer model) — bukan LGBM.
+
+        - **LGBM** butuh 424 fitur lengkap (V1-V339, C1-C14, D1-D15, dll).
+          Form manual hanya cover ~10 fitur → 414 sisa default 0 → prediksi
+          nyaris konstan untuk perubahan kecil.
+        - **EBM** dibangun sebagai distillation dari LGBM dan hanya butuh
+          **25 identity features**. Form 10 input cover sebagian besar →
+          prediksi benar-benar bergeser saat fitur diubah.
+        - Untuk fraud probability transaksi nyata (production accuracy),
+          pakai **Score by ID** yang panggil LGBM dengan 424 fitur dari Feast.
+        """
+    )
 
 # Default values — sample yang realistic dari train_identity.csv.
 DEFAULTS = {
@@ -103,7 +118,6 @@ if submitted:
 
     with st.spinner("Calling ml-service..."):
         try:
-            pred = predict_manual(payload)
             expl = explain_manual(payload)
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 422:
@@ -111,6 +125,15 @@ if submitted:
             else:
                 st.error(f"ml-service error: {e}")
             st.stop()
+
+    # /explain returns fraud_proba directly from EBM — derive PredictResponse shape.
+    pred = {
+        "fraud_proba": expl["fraud_proba"],
+        "predicted_label": int(expl["fraud_proba"] >= 0.5),
+        "threshold": 0.5,
+        "model": expl["model"],
+        "version": expl["version"],
+    }
 
     st.session_state["whatif_payload"] = payload
     st.session_state["whatif_pred"] = pred
