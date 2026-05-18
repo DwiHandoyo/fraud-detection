@@ -1,46 +1,50 @@
-# ui — Streamlit human review
+# ui — Streamlit multi-page console
 
-Memenuhi spec IF5251 nomor **Architecture 2c**: antarmuka untuk manusia
-memvalidasi prediksi fraud dengan confidence score rendah.
+Memenuhi spec IF5251 nomor **Architecture 2c** (human validation) +
+**RAI 5b** (display explainability).
 
-## Apa yang dilakukan
+## Pages
 
-1. Reviewer input `transaction_id`
-2. UI panggil `POST /predict_by_id` di ml-service → tampilkan
-   probability + label + flag "LOW CONFIDENCE" kalau proba ∈ [0.30, 0.70]
-3. UI panggil `POST /explain_by_id` → render bar chart kontribusi 15 fitur
-   teratas (warna merah = fraud-pushing, hijau = protective)
-4. Reviewer klik **Approve** / **Confirm fraud** / **Need more info**
-5. Keputusan di-append ke `decisions.jsonl` (audit trail)
+| File | Tujuan |
+|------|--------|
+| [`app.py`](app.py) | Landing — overview + service health banner |
+| [`pages/1_Score_by_ID.py`](pages/1_Score_by_ID.py) | Reviewer mode — lookup by transaction_id, gunakan Feast online store |
+| [`pages/2_What_if_Scoring.py`](pages/2_What_if_Scoring.py) | Audit mode — input fitur manual untuk skenario hipotetis |
+| [`pages/3_Audit_Log.py`](pages/3_Audit_Log.py) | History keputusan reviewer dengan filter + search + CSV export |
+| [`pages/4_Service_Status.py`](pages/4_Service_Status.py) | Health, model versions, OpenAPI docs links |
+
+Streamlit otomatis bikin sidebar navigation dari folder `pages/` — urut sesuai
+prefix angka (`1_*`, `2_*`, dst).
+
+## Shared module
+
+[`api_client.py`](api_client.py) — single source untuk:
+- HTTP client (predict_by_id, explain_by_id, predict, explain, health)
+- Audit log read/write (`decisions.jsonl`)
+- Bar chart renderer untuk explanation
+- Prediction header metrics renderer
+
+Semua pages import dari sini → tidak ada duplikasi logic.
 
 ## Run
 
+### Local
 ```bash
-# Prereq: ml-service jalan di http://localhost:8000
 cd ui
 ../playground/.venv/bin/python -m pip install -r requirements.txt
 ../playground/.venv/bin/streamlit run app.py
 # Buka http://localhost:8501
 ```
 
-Atau via Docker:
+### Docker
 ```bash
 docker build -t fraud-ui .
 docker run -p 8501:8501 -e ML_SERVICE_URL=http://host.docker.internal:8000 fraud-ui
 ```
 
-## Sample TransactionIDs
-
-Dari `train_identity.csv`: `2987004`, `2987008`, `2987010`, `2987011`,
-`2987016`, `2987017`, `2987022`, `2987038`.
-
-## Audit log format
-
-`decisions.jsonl` — satu JSON per baris:
-```json
-{"ts":"2026-05-10T15:30:00Z","transaction_id":2987004,
- "decision":"approve_legit","model_proba":0.42,"model_label":0,
- "model":"lgbm","note":""}
+### Compose (recommended)
+```bash
+docker compose up -d   # dari root fraud-detection/
 ```
 
 ## Env vars
@@ -49,3 +53,38 @@ Dari `train_identity.csv`: `2987004`, `2987008`, `2987010`, `2987011`,
 |-----|---------|--------|
 | `ML_SERVICE_URL` | `http://localhost:8000` | URL ml-service |
 | `DECISIONS_LOG` | `decisions.jsonl` | Path file audit |
+
+## Audit log format
+
+`decisions.jsonl` — satu JSON object per baris:
+```json
+{
+  "ts": "2026-05-10T15:30:00Z",
+  "transaction_id": 2987004,
+  "source": "by_id",
+  "decision": "approve_legit",
+  "model_proba": 0.42,
+  "model_label": 0,
+  "model": "lgbm",
+  "note": ""
+}
+```
+
+Field `source`: `by_id` (dari Score by ID page) atau `whatif` (dari What-if Scoring page).
+Field `transaction_id`: `null` kalau `source = whatif` (tidak ada ID untuk skenario hipotetis).
+
+## Adding a new page
+
+1. Buat file `pages/N_Page_Name.py` (N = nomor urut, name di-underscored)
+2. Import dari `api_client` kalau perlu HTTP / log
+3. Streamlit otomatis pickup, restart tidak perlu untuk file baru
+
+Contoh skeleton:
+```python
+import streamlit as st
+from api_client import health
+
+st.set_page_config(page_title="My Page", layout="wide")
+st.title("My Page")
+# ... isi page ...
+```
