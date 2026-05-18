@@ -18,6 +18,68 @@ Systems (IF5251)** di ITB. Dataset: IEEE-CIS Fraud Detection (Vesta + Kaggle).
 | 9 | [.github/workflows/](.github/workflows/) | CI/CD (lint + test + build) | Ops 4a |
 | 10 | [playground/](playground/) | EDA notebooks, EBM training, original LGBM | (research) |
 
+## Inventory — di mana model dan data berada
+
+### Model artifacts
+
+| Artifact | Path source (hasil training) | Path deploy (dipakai service) | Ukuran |
+|----------|------------------------------|------------------------------|--------|
+| LGBM predictor | `playground/lgbm_tuning.pkl` | `ml-service/models/lgbm.pkl` | ~35 MB |
+| EBM explainer | `playground/ebm/ebm_model.pkl` | `ml-service/models/ebm.pkl` | ~780 KB |
+| Preprocessor | `playground/preprocessing/preprocessor.pkl` | `ml-service/models/preprocessor.pkl` | ~45 KB |
+
+Service load lokasi mana → ditentukan di
+[ml-service/config.yaml](ml-service/config.yaml). Update artifact = copy + edit
+config + restart (lihat [Deploy artifact baru](#deploy-artifact-baru-ke-ml-service)).
+
+### Datasets
+
+| File | Path | Ukuran | Status di repo | Dari mana |
+|------|------|--------|---------------|-----------|
+| `train_identity.csv` | `playground/train_identity.csv` | ~25 MB | ✅ committed | [Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data) |
+| `identity.parquet` (Feast offline) | `feature-store/feature_repo/data/identity.parquet` | ~5.7 MB | ✅ committed | Regen dari `train_identity.csv` via [seed_data.py](feature-store/seed_data.py) |
+| `online_store.db` (Feast online) | `feature-store/feature_repo/data/online_store.db` | ~965 MB | ❌ gitignored (>GitHub limit) | Regen via `./materialize.sh` |
+| `registry.db` (Feast metadata) | `feature-store/feature_repo/data/registry.db` | 3 KB | ❌ gitignored | Regen via `./apply.sh` |
+| `train_transaction.csv` | (tidak ada di repo) | ~470 MB | ❌ download manual | [Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data) — wajib untuk retrain LGBM |
+| `sample_10rows.csv` | `playground/sample_10rows.csv` | 2 KB | ✅ committed | Sample untuk smoke test |
+| Identity reports (HTML) | `data-validation/reports/`, `monitoring/reports/`, `fairness/reports/` | varies | ❌ gitignored | Regen via masing-masing `*.py` script |
+
+### Try-it-out walkthrough (5 menit)
+
+Untuk reviewer/dosen yang mau langsung cek sistemnya jalan tanpa baca semua section:
+
+```bash
+# 1. Clone + masuk folder
+git clone <repo-url> && cd fraud-detection
+
+# 2. Pre-flight (regen Feast online_store.db — wajib, ~30 detik)
+cd feature-store
+python seed_data.py
+./apply.sh
+./materialize.sh
+cd ..
+
+# 3. Start service
+docker compose up -d --build         # build pertama ~5 menit
+
+# 4. Test prediction (lookup features dari Feast)
+curl -X POST http://localhost:8000/predict_by_id \
+  -H "Content-Type: application/json" \
+  -d '{"transaction_id": 2987004}'
+# Expected: {"fraud_proba": 0.42, "predicted_label": 0, "model": "lgbm", ...}
+
+# 5. Buka UI di browser
+open http://localhost:8501
+
+# 6. Coba reproduce training (EBM saja, tidak butuh train_transaction.csv)
+cd playground/ebm
+../.venv/bin/python train_ebm.py
+# Output: ebm_model.pkl + metrics.json (~1 menit)
+```
+
+Detail lengkap untuk training/deploy/monitoring di section
+[Training](#training) dan [Quickstart](#quickstart).
+
 ## Quickstart
 
 ### 1. Setup data + feature store (sekali saja)
@@ -63,82 +125,160 @@ cd ../qa-tests && locust -f load_test.py --host http://localhost:8000 \
 
 ## Training
 
-Semua model dapat dilatih ulang dari data sumber. Output disimpan sebagai
-`.pkl` yang langsung dipakai oleh [ml-service](ml-service/) lewat
-[config.yaml](ml-service/config.yaml).
+### Big picture — Feast di training vs production
 
-### EBM explainer (glass-box)
+Feast adalah **satu sumber kebenaran** untuk fitur. Definisi `FeatureView` di
+[feature-store/feature_repo/features.py](feature-store/feature_repo/features.py)
+dipakai oleh **dua jalur** yang berbeda:
 
-Script standalone — bisa langsung dijalankan, tidak butuh `train_transaction.csv`.
+```
+                        FeatureView (features.py)
+                                │
+            ┌───────────────────┴────────────────────┐
+            ▼                                        ▼
+   ┌──────────────────┐                    ┌──────────────────┐
+   │ OFFLINE store    │                    │ ONLINE store     │
+   │ (parquet file)   │                    │ (SQLite)         │
+   │ — historis penuh │                    │ — latest per     │
+   │ — point-in-time  │                    │   transaction_id │
+   └────────┬─────────┘                    └────────┬─────────┘
+            │                                       │
+            ▼                                       ▼
+  get_historical_features()              get_online_features()
+            │                                       │
+            ▼                                       ▼
+  ┌──────────────────┐                    ┌──────────────────┐
+  │ TRAINING         │                    │ PRODUCTION       │
+  │ train_*.py       │                    │ /predict_by_id   │
+  │ (offline batch)  │                    │ (online <10ms)   │
+  └──────────────────┘                    └──────────────────┘
+```
+
+Definisi fitur sama → **tidak ada training/serving skew**. Memenuhi spec
+**Arch 2a**.
+
+### Training scripts
+
+Ada **3 artifact** yang dilatih, di-ranking dari yang paling sering diretrain:
+
+| Artifact | Script training | Butuh data lengkap? | Output |
+|----------|----------------|---------------------|--------|
+| **EBM** (explainer) | [`playground/ebm/train_ebm.py`](playground/ebm/train_ebm.py) | ❌ (mode distillation) | `ebm_model.pkl` |
+| **LGBM** (predictor) | [`playground/2025-05-01_Model.ipynb`](playground/2025-05-01_Model.ipynb) | ✅ butuh `train_transaction.csv` | `lgbm_tuning.pkl` |
+| **Preprocessor** | [`playground/preprocessing/fit_preprocessor.py`](playground/preprocessing/fit_preprocessor.py) | ❌ (identity-only) / ✅ (full) | `preprocessor.pkl` |
+
+### Training pipeline (cara pakai Feast saat training)
+
+Best practice: training script **harus baca fitur dari Feast offline store**,
+bukan langsung dari CSV. Ini memastikan model dilatih dengan persis fitur yang
+nanti dipakai saat serving.
+
+Pseudocode untuk training script (yang akan kompatibel dengan Feast offline):
+
+```python
+from feast import FeatureStore
+import pandas as pd
+
+store = FeatureStore(repo_path="feature-store/feature_repo")
+
+# Entity dataframe — minimal kolom: entity key + event timestamp
+entity_df = pd.read_csv("entity_with_labels.csv")
+# kolom: transaction_id, event_timestamp, isFraud
+
+# Tarik fitur historis dari offline store
+training_df = store.get_historical_features(
+    entity_df=entity_df,
+    features=store.get_feature_service("identity_service"),
+).to_df()
+# training_df sekarang punya: transaction_id, event_timestamp, isFraud,
+#   id_01, id_02, ..., DeviceType, DeviceInfo (33 kolom fitur)
+
+# Train model
+y = training_df["isFraud"]
+X = training_df.drop(columns=["transaction_id", "event_timestamp", "isFraud"])
+model.fit(X, y)
+```
+
+**Status saat ini:**
+- ✅ Feast offline store **sudah ready** — parquet ada di
+  `feature-store/feature_repo/data/identity.parquet`
+- ⚠️ `playground/2025-05-01_Model.ipynb` (LGBM training) saat ini baca **langsung dari CSV**,
+  belum migrasi ke `get_historical_features()`
+- ⚠️ `playground/ebm/train_ebm.py` (EBM training) juga baca langsung dari CSV
+- 🟡 **Refactor opportunity**: ubah kedua training jalur supaya pakai
+  `get_historical_features()`. Demonstrasi konsistensi training/serving yang
+  lebih meyakinkan untuk laporan.
+
+### Production pipeline (cara pakai Feast saat serving)
+
+Sudah terimplementasi di
+[ml-service/app/feature_client.py](ml-service/app/feature_client.py):
+
+```python
+# Dipanggil oleh /predict_by_id dan /explain_by_id
+features_df = feast_client.get_features(transaction_id)  # ~5-10ms latency
+prediction = predictor.predict_proba(features_df)
+```
+
+Online store di-populate via `feast materialize-incremental` (lihat
+[feature-store/materialize.sh](feature-store/materialize.sh)).
+
+### Cara training (commands)
+
+#### EBM explainer
 
 ```bash
 cd playground/ebm
-../.venv/bin/python train_ebm.py                 # mode default: distillation dari LGBM
-../.venv/bin/python train_ebm.py --top-n 50      # pakai top-50 fitur (default 25)
-
-# Kalau punya train_transaction.csv (real isFraud labels):
+../.venv/bin/python train_ebm.py                              # distillation default
+../.venv/bin/python train_ebm.py --top-n 50                   # pakai top-50 fitur
 ../.venv/bin/python train_ebm.py \
-  --transaction-csv /path/to/train_transaction.csv
+  --transaction-csv /path/to/train_transaction.csv            # supervised mode
 ```
 
-Output:
-- `playground/ebm/ebm_model.pkl` — model siap pakai
-- `playground/ebm/metrics.json` — AUC, fidelity vs LGBM teacher
-- (opsional) `playground/ebm/explain_ebm.py` — generate shape function plots & HTML
+Output: `playground/ebm/ebm_model.pkl` + `metrics.json`.
+Detail: [playground/ebm/README.md](playground/ebm/README.md).
 
-Lihat [playground/ebm/README.md](playground/ebm/README.md) untuk detail.
-
-### Preprocessor (LabelEncoder + fillna pipeline)
+#### Preprocessor
 
 ```bash
 cd playground/preprocessing
-../.venv/bin/python fit_preprocessor.py                        # identity-only mode
+../.venv/bin/python fit_preprocessor.py                       # identity-only
 ../.venv/bin/python fit_preprocessor.py \
-  --full /path/to/train_transaction.csv                        # full features
+  --full /path/to/train_transaction.csv                       # full features
 ```
 
-Output: `playground/preprocessing/preprocessor.pkl` (~45 KB).
+Output: `preprocessor.pkl` (~45 KB).
+Detail: [playground/preprocessing/README.md](playground/preprocessing/README.md).
 
-Lihat [playground/preprocessing/README.md](playground/preprocessing/README.md).
+#### LGBM predictor
 
-### LGBM predictor
+Notebook: [playground/2025-05-01_Model.ipynb](playground/2025-05-01_Model.ipynb).
+Butuh `train_transaction.csv` (~470 MB dari
+[Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data)).
 
-Saat ini training-nya di notebook (belum di-extract jadi `.py` standalone):
-[playground/2025-05-01_Model.ipynb](playground/2025-05-01_Model.ipynb).
+Saat ini belum ada `train_lgbm.py` standalone — tinggal extract dari notebook
+kalau perlu CI/CD continuous training.
 
-Butuh `train_transaction.csv` (~470 MB dari Kaggle) — tidak ada di repo.
-Output: `playground/lgbm_tuning.pkl` (~35 MB) yang dicopy ke
-`ml-service/models/lgbm.pkl`.
-
-```bash
-# Setelah menjalankan notebook
-cp playground/lgbm_tuning.pkl ml-service/models/lgbm.pkl
-```
-
-### Deploy model baru ke ml-service
-
-Setelah retraining, update artifacts dan restart service:
+### Deploy artifact baru ke ml-service
 
 ```bash
-# Copy artifact baru
+# 1. Copy .pkl yang baru dilatih
 cp playground/ebm/ebm_model.pkl ml-service/models/ebm.pkl
 cp playground/lgbm_tuning.pkl ml-service/models/lgbm.pkl
 cp playground/preprocessing/preprocessor.pkl ml-service/models/preprocessor.pkl
 
-# (Opsional) bump version di config.yaml supaya audit trail jelas
-# Edit ml-service/config.yaml: predictor.version: "1.1"
+# 2. Bump version di config.yaml untuk audit trail
+#    Edit ml-service/config.yaml: predictor.version: "1.1"
 
-# Rebuild + restart
-docker compose up -d --build
-```
+# 3. Re-materialize feature store kalau training data berubah
+cd feature-store && ./materialize.sh
 
-### Feature store re-materialize (setelah update training data)
+# 4. Rebuild + restart ml-service
+cd .. && docker compose up -d --build
 
-```bash
-cd feature-store
-../playground/.venv/bin/python seed_data.py     # CSV → parquet
-./apply.sh                                       # registry
-./materialize.sh                                 # online store
+# 5. Verify version baru
+curl http://localhost:8000/health
+# {"predictor": "lgbm/1.1", ...}
 ```
 
 ## Arsitektur
