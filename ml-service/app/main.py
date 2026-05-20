@@ -1,7 +1,10 @@
 """FastAPI app — model-agnostic. Endpoints route to adapters loaded from config.yaml."""
 from __future__ import annotations
 
+import json
 import logging
+import os
+from datetime import datetime
 from pathlib import Path
 from typing import cast
 
@@ -9,6 +12,7 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 
 from .adapters import Explainer, Predictor, load
+from .db import AVAILABLE as DB_AVAILABLE, insert_prediction
 from .feature_client import FeastClient
 from .schemas import (
     ExplainResponse,
@@ -51,6 +55,52 @@ else:
 
 logger.info("predictor=%s/%s features=%d", predictor.name, predictor.version, len(predictor.feature_names))
 logger.info("explainer=%s/%s features=%d", explainer.name, explainer.version, len(explainer.feature_names))
+logger.info("postgres audit logging: %s", "enabled" if DB_AVAILABLE else "disabled (JSONL only)")
+
+# Structured prediction log — one JSON object per line. Read by Evidently
+# for drift monitoring. Falls back to stdout if no LOG_FILE set.
+PREDICTIONS_LOG_PATH = os.getenv("LOG_FILE")
+predictions_logger = logging.getLogger("predictions")
+predictions_logger.setLevel(logging.INFO)
+predictions_logger.propagate = False
+if PREDICTIONS_LOG_PATH:
+    Path(PREDICTIONS_LOG_PATH).parent.mkdir(parents=True, exist_ok=True)
+    _h = logging.FileHandler(PREDICTIONS_LOG_PATH)
+else:
+    _h = logging.StreamHandler()
+_h.setFormatter(logging.Formatter("%(message)s"))
+predictions_logger.addHandler(_h)
+
+
+def _log_prediction(
+    *,
+    source: str,
+    transaction_id,
+    fraud_proba: float,
+    label: int,
+    model_name: str,
+    model_version: str | None = None,
+    request_payload: dict | None = None,
+) -> int | None:
+    """Dual-write: JSONL (for Evidently) + Postgres (for Audit Log). Returns
+    prediction_id from Postgres if available, else None."""
+    predictions_logger.info(json.dumps({
+        "ts": datetime.utcnow().isoformat() + "Z",
+        "source": source,
+        "transaction_id": transaction_id,
+        "fraud_proba": round(fraud_proba, 6),
+        "label": label,
+        "model": model_name,
+    }))
+    return insert_prediction(
+        source=source,
+        transaction_id=transaction_id,
+        fraud_proba=fraud_proba,
+        predicted_label=label,
+        model=model_name,
+        model_version=model_version,
+        request_payload=request_payload,
+    )
 
 app = FastAPI(
     title="Fraud Detection Service",
@@ -91,9 +141,15 @@ def predict(req: TransactionInput) -> PredictResponse:
     _validate_or_422(req)
     X = _to_df(req)
     proba = predictor.predict_proba(X)[0]
+    label = int(proba >= threshold)
+    _log_prediction(
+        source="predict", transaction_id=None, fraud_proba=proba, label=label,
+        model_name=predictor.name, model_version=predictor.version,
+        request_payload=req.model_dump(exclude_none=True),
+    )
     return PredictResponse(
         fraud_proba=proba,
-        predicted_label=int(proba >= threshold),
+        predicted_label=label,
         threshold=threshold,
         model=predictor.name,
         version=predictor.version,
@@ -127,9 +183,14 @@ def _lookup_or_404(transaction_id: int) -> pd.DataFrame:
 def predict_by_id(req: PredictByIdRequest) -> PredictResponse:
     X = _lookup_or_404(req.transaction_id)
     proba = predictor.predict_proba(X)[0]
+    label = int(proba >= threshold)
+    _log_prediction(
+        source="predict_by_id", transaction_id=req.transaction_id, fraud_proba=proba,
+        label=label, model_name=predictor.name, model_version=predictor.version,
+    )
     return PredictResponse(
         fraud_proba=proba,
-        predicted_label=int(proba >= threshold),
+        predicted_label=label,
         threshold=threshold,
         model=predictor.name,
         version=predictor.version,

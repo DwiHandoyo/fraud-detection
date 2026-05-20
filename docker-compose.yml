@@ -5,37 +5,92 @@
 #   open http://localhost:8501  (Streamlit UI)
 #   open http://localhost:8000/docs (FastAPI docs)
 #
-# Prereq: feature-store/feature_repo/data/ harus sudah punya
-#   identity.parquet, registry.db, online_store.db
-# Generate sekali sebelum docker compose:
+# REQUIRED PRE-FLIGHT (one-time, after clone):
 #   cd feature-store && python seed_data.py && ./apply.sh && ./materialize.sh
+# online_store.db is gitignored (965 MB > GitHub limit) and must be regenerated.
+#
+# Stop:   docker compose down
+# Reset volumes (lose decisions log + prediction log):
+#         docker compose down -v
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fraud-postgres
+    restart: unless-stopped
+    init: true
+    environment:
+      POSTGRES_DB: fraud
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud_demo_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "fraud", "-d", "fraud"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks: [fraud-net]
+
   ml-service:
     build: ./ml-service
+    image: fraud-ml:0.1
     container_name: fraud-ml
+    restart: unless-stopped
+    init: true
     ports:
       - "8000:8000"
     volumes:
-      # Mount feature store (read-only) ke /feature-store/feature_repo
-      - ./feature-store/feature_repo:/feature-store/feature_repo:ro
+      # Feast online store needs RW access (SQLite -wal/-shm journal files).
+      - ./feature-store/feature_repo:/feature-store/feature_repo
       - ./data-validation:/data-validation:ro
+      - predictions-log:/app/logs
     environment:
       CONFIG_PATH: /app/config.yaml
+      LOG_FILE: /app/logs/predictions.jsonl
+      DATABASE_URL: postgresql+psycopg2://fraud:fraud_demo_only@postgres:5432/fraud
+    mem_limit: 1g
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 30s
+    networks: [fraud-net]
 
   ui:
     build: ./ui
+    image: fraud-ui:0.1
     container_name: fraud-ui
+    restart: unless-stopped
+    init: true
     ports:
       - "8501:8501"
+    volumes:
+      - decisions-data:/app/data
     environment:
       ML_SERVICE_URL: http://ml-service:8000
+      DECISIONS_LOG: /app/data/decisions.jsonl
+      DATABASE_URL: postgresql+psycopg2://fraud:fraud_demo_only@postgres:5432/fraud
+    mem_limit: 256m
     depends_on:
+      postgres:
+        condition: service_healthy
       ml-service:
         condition: service_healthy
+    networks: [fraud-net]
+
+networks:
+  fraud-net:
+
+volumes:
+  postgres-data:
+  predictions-log:
+  decisions-data:

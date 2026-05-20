@@ -56,6 +56,8 @@ def explain_manual(payload: dict) -> dict:
 
 
 def log_decision(transaction_id, decision: str, prediction: dict, note: str = "", source: str = "by_id") -> None:
+    """Dual-write decision: JSONL (always) + Postgres (if available)."""
+    # JSONL — primary, always works.
     record = {
         "ts": datetime.utcnow().isoformat() + "Z",
         "transaction_id": transaction_id,
@@ -70,8 +72,34 @@ def log_decision(transaction_id, decision: str, prediction: dict, note: str = ""
     with DECISIONS_LOG.open("a") as f:
         f.write(json.dumps(record) + "\n")
 
+    # Postgres — best effort, no-op if DB unavailable.
+    try:
+        from db import insert_decision
+        insert_decision(
+            transaction_id=transaction_id,
+            source=source,
+            decision=decision,
+            model_proba=prediction.get("fraud_proba"),
+            model_label=prediction.get("predicted_label"),
+            model=prediction.get("model"),
+            note=note,
+        )
+    except Exception:
+        pass
 
-def read_decisions(limit: int = 200) -> list[dict]:
+
+def read_decisions(limit: int = 200, decision_filter: list[str] | None = None,
+                   source_filter: list[str] | None = None, search: str = "") -> list[dict]:
+    """Prefer Postgres for read (filterable). Fallback to JSONL."""
+    try:
+        from db import read_decisions as db_read, AVAILABLE
+        if AVAILABLE:
+            return db_read(limit=limit, decision_filter=decision_filter,
+                           source_filter=source_filter, search=search)
+    except Exception:
+        pass
+
+    # JSONL fallback — no SQL filters, returns all then caller filters in-memory.
     if not DECISIONS_LOG.exists():
         return []
     lines = DECISIONS_LOG.read_text().strip().split("\n")

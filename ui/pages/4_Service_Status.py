@@ -32,9 +32,27 @@ try:
 except Exception as e:
     st.error(f"ml-service unreachable: {e}")
 
-# Audit log info.
+# PostgreSQL audit storage.
 st.divider()
-st.subheader("Audit log")
+st.subheader("PostgreSQL audit storage")
+try:
+    from db import AVAILABLE as DB_AVAILABLE, row_counts
+except Exception:
+    DB_AVAILABLE = False
+    row_counts = lambda: {"predictions": None, "decisions": None}  # noqa: E731
+
+if DB_AVAILABLE:
+    counts = row_counts()
+    c1, c2 = st.columns(2)
+    c1.metric("Predictions table", counts["predictions"] if counts["predictions"] is not None else "—")
+    c2.metric("Decisions table", counts["decisions"] if counts["decisions"] is not None else "—")
+    st.success("PostgreSQL audit storage: connected")
+else:
+    st.warning("PostgreSQL audit storage: not available — using JSONL fallback")
+
+# JSONL fallback files.
+st.divider()
+st.subheader("JSONL fallback files")
 if DECISIONS_LOG.exists():
     count = sum(1 for _ in DECISIONS_LOG.open())
     size_kb = DECISIONS_LOG.stat().st_size / 1024

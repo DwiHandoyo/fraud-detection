@@ -10,3 +10,5 @@ numpy
 scikit-learn
 feast[sqlite]
 pyarrow
+sqlalchemy
+psycopg2-binary

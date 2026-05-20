@@ -9,14 +9,15 @@ Systems (IF5251)** di ITB. Dataset: IEEE-CIS Fraud Detection (Vesta + Kaggle).
 |---|--------|--------|------|
 | 1 | [ml-service/](ml-service/) | FastAPI inference + explanation, adapter pattern model-agnostic | Arch 2b, RAI 5b |
 | 2 | [feature-store/](feature-store/) | Feast feature store (online SQLite + offline parquet) | Arch 2a |
-| 3 | [data-validation/](data-validation/) | Great Expectations suite (dataset + request) | QA 3a |
-| 4 | [ui/](ui/) | Streamlit human review UI | Arch 2c |
-| 5 | [monitoring/](monitoring/) | Evidently drift dashboard | Ops 4b |
-| 6 | [fairness/](fairness/) | FairLearn audit (DeviceType, OS, Browser) | RAI 5a |
-| 7 | [qa-tests/](qa-tests/) | Adversarial + locust load test | QA 3b, 3c |
-| 8 | [docs/FMEA.md](docs/FMEA.md) | Failure Mode and Effects Analysis | Req 1c |
-| 9 | [.github/workflows/](.github/workflows/) | CI/CD (lint + test + build) | Ops 4a |
-| 10 | [playground/](playground/) | EDA notebooks, EBM training, original LGBM | (research) |
+| 3 | [postgres/](postgres/) | PostgreSQL — audit storage untuk predictions + decisions | Req 1a |
+| 4 | [data-validation/](data-validation/) | Great Expectations suite (dataset + request) | QA 3a |
+| 5 | [ui/](ui/) | Streamlit multi-page console (4 pages) | Arch 2c |
+| 6 | [monitoring/](monitoring/) | Evidently drift dashboard | Ops 4b |
+| 7 | [fairness/](fairness/) | FairLearn audit (DeviceType, OS, Browser) | RAI 5a |
+| 8 | [qa-tests/](qa-tests/) | Adversarial + locust load test | QA 3b, 3c |
+| 9 | [docs/FMEA.md](docs/FMEA.md) | Failure Mode and Effects Analysis | Req 1c |
+| 10 | [.github/workflows/](.github/workflows/) | CI/CD (lint + test + build) | Ops 4a |
+| 11 | [playground/](playground/) | EDA notebooks, EBM training, original LGBM | (research) |
 
 ## Inventory — di mana model dan data berada
 
@@ -164,7 +165,7 @@ Ada **3 artifact** yang dilatih, di-ranking dari yang paling sering diretrain:
 | Artifact | Script training | Butuh data lengkap? | Output |
 |----------|----------------|---------------------|--------|
 | **EBM** (explainer) | [`playground/ebm/train_ebm.py`](playground/ebm/train_ebm.py) | ❌ (mode distillation) | `ebm_model.pkl` |
-| **LGBM** (predictor) | [`playground/2025-05-01_Model.ipynb`](playground/2025-05-01_Model.ipynb) | ✅ butuh `train_transaction.csv` | `lgbm_tuning.pkl` |
+| **LGBM** (predictor) | [`playground/lgbm/train_lgbm.py`](playground/lgbm/train_lgbm.py) | ✅ butuh `train_transaction.csv` | `lgbm_model.pkl` + `label_encoders.pkl` |
 | **Preprocessor** | [`playground/preprocessing/fit_preprocessor.py`](playground/preprocessing/fit_preprocessor.py) | ❌ (identity-only) / ✅ (full) | `preprocessor.pkl` |
 
 ### Training pipeline (cara pakai Feast saat training)
@@ -252,12 +253,30 @@ Detail: [playground/preprocessing/README.md](playground/preprocessing/README.md)
 
 #### LGBM predictor
 
-Notebook: [playground/2025-05-01_Model.ipynb](playground/2025-05-01_Model.ipynb).
+Standalone script: [playground/lgbm/train_lgbm.py](playground/lgbm/train_lgbm.py).
 Butuh `train_transaction.csv` (~470 MB dari
-[Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data)).
+[Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data)) — tidak ada di repo.
 
-Saat ini belum ada `train_lgbm.py` standalone — tinggal extract dari notebook
-kalau perlu CI/CD continuous training.
+```bash
+cd playground/lgbm
+../.venv/bin/python -m pip install -r requirements.txt
+
+# Smoke test (~30 detik, n_estimators=200)
+../.venv/bin/python train_lgbm.py \
+  --transaction-csv /path/to/train_transaction.csv \
+  --quick
+
+# Full training (~10–15 menit, val AUC ~0.92)
+../.venv/bin/python train_lgbm.py \
+  --transaction-csv /path/to/train_transaction.csv
+```
+
+Output: `lgbm_model.pkl` + `label_encoders.pkl` (untuk consistency
+inference/training) + `metrics.json` + `feature_importance.csv`.
+Detail di [playground/lgbm/README.md](playground/lgbm/README.md).
+
+Notebook asli [playground/2025-05-01_Model.ipynb](playground/2025-05-01_Model.ipynb)
+tetap ada untuk EDA / experimentation.
 
 ### Deploy artifact baru ke ml-service
 
@@ -284,45 +303,58 @@ curl http://localhost:8000/health
 ## Arsitektur
 
 ```
-                 ┌─────────────────┐
-                 │  Streamlit UI   │  http://localhost:8501
-                 │  (ui/)          │
-                 └────────┬────────┘
+                 ┌─────────────────────────┐
+                 │  Streamlit UI (ui/)     │  http://localhost:8501
+                 │  4 pages: Score by ID,  │
+                 │  What-if, Audit, Status │
+                 └────────┬────────────────┘
                           │ HTTP
                           ▼
-┌──────────────┐   ┌─────────────────┐   ┌──────────────────┐
-│ Great        │◄──│  ml-service     │──►│ Feast online     │
-│ Expectations │   │  (FastAPI)      │   │ store (SQLite)   │
-│ validator    │   │                 │   │                  │
-│              │   │  ┌───────────┐  │   └────────┬─────────┘
-│ data-        │   │  │ LGBM      │  │            │
-│ validation/  │   │  │ adapter   │  │            ▼
-└──────────────┘   │  │ (predict) │  │   ┌──────────────────┐
-                   │  └───────────┘  │   │ Feast offline    │
-                   │  ┌───────────┐  │   │ (parquet)        │
-                   │  │ EBM       │  │   │ feature-store/   │
-                   │  │ adapter   │  │   └──────────────────┘
-                   │  │ (explain) │  │
-                   │  └───────────┘  │
-                   └─────────────────┘
-                          │
-                          ▼
-                   ┌──────────────────┐
-                   │ Predictions log  │
-                   │ (stdout JSON)    │
-                   └─────────┬────────┘
-                             │ batched
-                             ▼
-                   ┌──────────────────┐    ┌──────────────────┐
-                   │ Evidently        │    │ FairLearn audit  │
-                   │ (monitoring/)    │    │ (fairness/)      │
-                   └──────────────────┘    └──────────────────┘
+┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐
+│ Great        │◄──│  ml-service      │──►│ Feast online     │
+│ Expectations │   │  (FastAPI)       │   │ store (SQLite)   │
+│ validator    │   │                  │   │                  │
+│              │   │  ┌────────────┐  │   └────────┬─────────┘
+│ data-        │   │  │ LGBM       │  │            │
+│ validation/  │   │  │ adapter    │  │            ▼
+└──────────────┘   │  │ (predict)  │  │   ┌──────────────────┐
+                   │  └────────────┘  │   │ Feast offline    │
+                   │  ┌────────────┐  │   │ (parquet)        │
+                   │  │ EBM        │  │   │ feature-store/   │
+                   │  │ adapter    │  │   └──────────────────┘
+                   │  │ (explain)  │  │
+                   │  └────────────┘  │
+                   └────────┬─────────┘
+                            │ insert
+                            │
+            ┌───────────────┴───────────────┐
+            │                               │
+            ▼                               ▼
+   ┌──────────────────┐         ┌──────────────────────────┐
+   │ Predictions log  │         │  PostgreSQL (postgres/)  │
+   │ JSONL (volume)   │         │  - predictions table     │
+   └────────┬─────────┘         │  - decisions table       │
+            │                   └──────────┬───────────────┘
+            ▼                              │
+   ┌──────────────────┐                    │
+   │ Evidently        │         ┌──────────┴──────┐
+   │ (monitoring/)    │         │ Audit Log page  │
+   └──────────────────┘         │ (UI)            │
+                                └─────────────────┘
+                                         ▲
+                                         │
+                                Streamlit UI insert
+                                decision via api_client
 ```
+
+Graceful fallback: kalau PostgreSQL down, ml-service + UI tetap berjalan
+(prediksi via JSONL, audit log via JSONL).
 
 ## Spec coverage
 
 | Spec | Status | Komponen |
 |------|--------|----------|
+| Req 1a — Komponen non-AI (DB, UI, API) | ✅ | [postgres/](postgres/) + [ui/](ui/) + [ml-service/](ml-service/) |
 | Req 1c — FMEA | ✅ | [docs/FMEA.md](docs/FMEA.md) |
 | Arch 2a — Feature Store (Feast) | ✅ | [feature-store/](feature-store/) |
 | Arch 2b — Microservice + container | ✅ | [ml-service/](ml-service/) |
