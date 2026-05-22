@@ -13,3 +13,4 @@ feast>=0.40
 pyarrow>=14
 sqlalchemy
 psycopg2-binary
+gdown

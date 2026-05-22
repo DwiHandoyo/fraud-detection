@@ -84,8 +84,7 @@ data_docs_sites:
     class_name: SiteBuilder
     store_backend:
       class_name: TupleFilesystemStoreBackend
-      base_directory: 
-        /Users/mac/Documents/ai-prod/tubes/fraud-detection/data-validation/reports/data_docs
+      base_directory: ../data-validation/reports/data_docs
     site_index_builder:
       class_name: DefaultSiteIndexBuilder
 fluent_datasources:
