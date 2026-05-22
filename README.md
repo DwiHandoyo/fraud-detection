@@ -300,6 +300,130 @@ curl http://localhost:8000/health
 # {"predictor": "lgbm/1.1", ...}
 ```
 
+### Continuous training (human-in-the-loop feedback)
+
+Pipeline lengkap dari koreksi reviewer → retrain → deploy. Mix dari step
+otomatis (DB-driven) dan manual (deliberate, supaya reviewer bisa kontrol).
+
+#### Alur lengkap (post Bulk Audit)
+
+```
+[Page 5 Bulk Predict] upload CSV
+      │ AUTO
+      ▼
+bulk_predictions table — status=completed, predicted_label, fraud_proba
+      │
+      ▼
+[Page 7 Bulk Audit] reviewer centang rows + klik "Mark as FRAUD/LEGIT/BLOCKED"
+      │ AUTO (instant DB write)
+      ▼
+bulk_predictions.user_label, user_note, labeled_at
+      │
+      ├──► AUTO ──► [Page 6 Bulk Dashboard] pie chart "User label breakdown"
+      │
+      │ MANUAL (user buka Page 8)
+      ▼
+[Page 8 Continuous Training]
+   • inventory: berapa labeled rows
+   • slider parameters (recent_days, history_sample, min_new_labels)
+   • klik "Show retrain command" → UI generate command + copy hint
+      │
+      │ MANUAL (copy-paste ke host terminal — UI image tidak punya lightgbm)
+      ▼
+$ export DATABASE_URL=postgresql+psycopg2://fraud:fraud_demo_only@localhost:5432/fraud
+$ cd playground/lgbm
+$ ../.venv/bin/python retrain_from_feedback.py --recent-days 30 ...
+      │ AUTO (dalam script)
+      ▼
+1. SELECT labeled rows: NEW (last 30 days, 100%) + OLD (>30 days, 20% sample)
+2. Expand request_payload JSONB → feature columns, user_label → isFraud
+3. Reuse train_lgbm.preprocess + train (LabelEncoder fit, LGBM fit, val AUC)
+4. Save artifacts:
+     ml-service/models/lgbm_v{timestamp}.pkl
+     ml-service/models/label_encoders_v{timestamp}.pkl
+     INSERT INTO training_jobs (status='trained', val_auc, n_new, n_old, ...)
+      │
+      ▼
+Script print: "To promote: edit ml-service/config.yaml..."
+      │
+      │ MANUAL (kembali ke Page 8)
+      ▼
+[Page 8 — section "Promote a trained model"]
+   • Dropdown: training_jobs WHERE status='trained'
+   • Klik "Promote to Champion"
+      │ AUTO (DB only)
+      ▼
+UPDATE training_jobs SET status='promoted', promoted_at=NOW()
+      │
+      │ MANUAL (UI tampilkan instruksi)
+      ▼
+$ # Edit ml-service/config.yaml:
+$ #   predictor.path: models/lgbm_v{timestamp}.pkl
+$ #   predictor.version: "v{timestamp}"
+$ docker compose restart ml-service
+      │ AUTO (ml-service startup)
+      ▼
+ml-service load model baru → /predict serve versi baru
+```
+
+#### Ringkasan otomatis vs manual
+
+| Step | Otomatis | Manual |
+|------|----------|--------|
+| Bulk Audit klik button → DB write | ✅ | — |
+| Bulk Dashboard refresh visualization | ✅ | — |
+| Trigger retrain | — | ✅ user copy command |
+| Train LGBM + save versioned pkl | ✅ (dalam script) | — |
+| INSERT training_jobs row | ✅ | — |
+| Promote ke champion (DB update) | ✅ (button) | — |
+| Edit config.yaml + restart ml-service | — | ✅ user manual |
+| ml-service load model baru | ✅ (on startup) | — |
+
+#### Yang sengaja TIDAK otomatis
+
+- ❌ Auto-trigger retrain saat N labels terkumpul — reviewer kontrol kapan
+- ❌ Auto-promote saat AUC lebih baik — perlu sanity check manusia
+- ❌ Hot-reload model tanpa restart — keep deployment audit-trail jelas
+- ❌ Shadow mode (paralel run challenger) — disebut di FMEA sebagai future work
+
+#### Windowing strategy
+
+Sliding window dengan history sample:
+
+```
+NEW (last 30 days):       100% used   → adapt ke concept drift
+OLD (>30 days):           20% sample  → hindari catastrophic forgetting
+```
+
+Knob `--recent-days` dan `--history-sample-rate` di UI Page 8 atau CLI.
+
+#### Sumber fitur saat retrain
+
+Dari `bulk_predictions.request_payload` (JSONB snapshot saat user upload CSV),
+**bukan** Feast online store. Trade-off ini disengaja untuk simplicity demo —
+production sungguhan pakai Feast `get_historical_features()` dengan
+event_timestamp untuk point-in-time correctness.
+
+#### Quick reference commands
+
+```bash
+# Retrain (host terminal, butuh playground/.venv dengan lightgbm)
+export DATABASE_URL=postgresql+psycopg2://fraud:fraud_demo_only@localhost:5432/fraud
+cd playground/lgbm
+../.venv/bin/python retrain_from_feedback.py \
+  --recent-days 30 \
+  --history-sample-rate 0.20 \
+  --min-new-labels 20 \
+  --quick
+
+# Promote (di Page 8 UI) lalu activate:
+# Edit ml-service/config.yaml predictor.path → models/lgbm_v{ts}.pkl
+docker compose restart ml-service
+```
+
+Detail lengkap: [playground/lgbm/retrain_from_feedback.py](playground/lgbm/retrain_from_feedback.py)
+dan [ui/pages/8_Continuous_Training.py](ui/pages/8_Continuous_Training.py).
+
 ## Arsitektur
 
 ```
@@ -362,7 +486,7 @@ Graceful fallback: kalau PostgreSQL down, ml-service + UI tetap berjalan
 | QA 3a — Data validation | ✅ | [data-validation/](data-validation/) |
 | QA 3b — Adversarial test | ✅ | [qa-tests/adversarial.py](qa-tests/adversarial.py) |
 | QA 3c — Load test | ✅ | [qa-tests/load_test.py](qa-tests/load_test.py) |
-| Ops 4a — CI/CD | ✅ | [.github/workflows/ci.yml](.github/workflows/ci.yml) |
+| Ops 4a — CI/CD + continuous training | ✅ | [.github/workflows/ci.yml](.github/workflows/ci.yml) + [playground/lgbm/retrain_from_feedback.py](playground/lgbm/retrain_from_feedback.py) |
 | Ops 4b — Monitoring (Evidently) | ✅ | [monitoring/](monitoring/) |
 | RAI 5a — Fairness audit | ✅ | [fairness/](fairness/) |
 | RAI 5b — Explainability | ✅ | [ml-service/app/adapters.py](ml-service/app/adapters.py) `EBMAdapter.explain` |
@@ -370,12 +494,20 @@ Graceful fallback: kalau PostgreSQL down, ml-service + UI tetap berjalan
 
 ## Model architecture
 
-**Predictor:** LightGBM (424 fitur, di-train dari notebook
-[playground/2025-05-01_Model.ipynb](playground/2025-05-01_Model.ipynb)).
+**Single model: `lgbm_best.pkl`** — LightGBM dengan 107 fitur (hasil retuning
+dari notebook), berfungsi sebagai **predictor sekaligus explainer**.
 
-**Explainer:** EBM (Explainable Boosting Machine) sebagai distillation
-surrogate. Detail:
-[playground/ebm/](playground/ebm/), training: `python playground/ebm/train_ebm.py`.
+- `/predict` dan `/predict_by_id` → `LGBMAdapter.predict_proba(X)`
+- `/explain` dan `/explain_by_id` → `LGBMAdapter.explain(X)` via SHAP TreeExplainer
+
+Karena predictor dan explainer pakai model yang sama, **fraud_proba dari
+`/predict` dan `/explain` identik** untuk input yang sama (no LGBM↔EBM drift).
+
+**Alternatif tersedia:**
+- `EBMAdapter` di [adapters.py](ml-service/app/adapters.py) — glass-box,
+  artifact di [playground/ebm/](playground/ebm/). Swap dengan ubah `config.yaml`
+  → `type: ebm`.
+- `lgbm.pkl` lama (424 fitur) — tersedia di `ml-service/models/` sebagai backup.
 
 **Swap model:** edit [ml-service/config.yaml](ml-service/config.yaml) baris
 `predictor.type` + `path`. Tambah model baru = ~30 baris adapter class +

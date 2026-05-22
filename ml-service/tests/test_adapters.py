@@ -22,16 +22,29 @@ def _sample_row() -> pd.DataFrame:
 
 
 def test_lgbm_adapter_loads():
-    adapter = LGBMAdapter(path=str(MODELS / "lgbm.pkl"))
+    adapter = LGBMAdapter(path=str(MODELS / "lgbm_best.pkl"))
     assert adapter.name == "lgbm"
-    assert len(adapter.feature_names) > 100  # full LGBM has 424
+    assert len(adapter.feature_names) == 107
 
 
 def test_lgbm_predict_proba_returns_float_in_unit_interval():
-    adapter = LGBMAdapter(path=str(MODELS / "lgbm.pkl"))
+    adapter = LGBMAdapter(path=str(MODELS / "lgbm_best.pkl"))
     proba = adapter.predict_proba(_sample_row())
     assert len(proba) == 1
     assert 0.0 <= proba[0] <= 1.0
+
+
+def test_lgbm_explain_returns_per_feature_contributions():
+    adapter = LGBMAdapter(path=str(MODELS / "lgbm_best.pkl"))
+    explanations = adapter.explain(_sample_row())
+    assert len(explanations) == 1
+    contribs = explanations[0]
+    assert all("feature" in c and "contribution" in c for c in contribs)
+    # Sorted by absolute contribution descending.
+    abs_scores = [abs(c["contribution"]) for c in contribs]
+    assert abs_scores == sorted(abs_scores, reverse=True)
+    # Same number of contributions as features.
+    assert len(contribs) == len(adapter.feature_names)
 
 
 def test_ebm_adapter_loads():

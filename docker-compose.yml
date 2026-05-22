@@ -49,6 +49,10 @@ services:
       - ./feature-store/feature_repo:/feature-store/feature_repo
       - ./data-validation:/data-validation:ro
       - predictions-log:/app/logs
+      # Models RW so retrain can write new versioned pkls back to host.
+      - ./ml-service/models:/app/models
+      # Playground RO so /admin/retrain can run retrain_from_feedback.py.
+      - ./playground:/playground:ro
     environment:
       CONFIG_PATH: /app/config.yaml
       LOG_FILE: /app/logs/predictions.jsonl

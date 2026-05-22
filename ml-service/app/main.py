@@ -4,12 +4,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import cast
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 from .adapters import Explainer, Predictor, load
 from .db import AVAILABLE as DB_AVAILABLE, insert_prediction
@@ -207,4 +210,72 @@ def explain_by_id(req: PredictByIdRequest) -> ExplainResponse:
         contributions=[FeatureContribution(**c) for c in contribs_raw],
         model=explainer.name,
         version=explainer.version,
+    )
+
+
+# =====================================================================
+# Admin — continuous training trigger
+# =====================================================================
+
+class RetrainRequest(BaseModel):
+    recent_days: int = 30
+    history_sample_rate: float = 0.20
+    min_new_labels: int = 20
+    quick: bool = True
+    notes: str = ""
+
+
+class RetrainResponse(BaseModel):
+    status: str               # 'success' | 'error'
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+RETRAIN_SCRIPT = Path("/playground/lgbm/retrain_from_feedback.py")
+
+
+@app.post("/admin/retrain", response_model=RetrainResponse)
+def admin_retrain(req: RetrainRequest) -> RetrainResponse:
+    """Trigger retrain script as subprocess. Synchronous (blocks for 1–10 min).
+
+    Mounted in docker-compose.yml:
+      ./playground:/playground:ro      (read-only, holds the script)
+      ./ml-service/models:/app/models  (read-write, retrain writes new pkl here)
+    """
+    if not RETRAIN_SCRIPT.exists():
+        raise HTTPException(
+            500,
+            f"Retrain script not found at {RETRAIN_SCRIPT}. "
+            "Mount `./playground:/playground:ro` in docker-compose.yml.",
+        )
+
+    cmd = [
+        sys.executable, str(RETRAIN_SCRIPT),
+        "--recent-days", str(req.recent_days),
+        "--history-sample-rate", str(req.history_sample_rate),
+        "--min-new-labels", str(req.min_new_labels),
+        "--output-dir", "/app/models",
+    ]
+    if req.quick:
+        cmd.append("--quick")
+    if req.notes:
+        cmd.extend(["--notes", req.notes])
+
+    logger.info("Starting retrain: %s", " ".join(cmd))
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=900,
+            env={**os.environ},
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(504, "Retrain timed out (>15 minutes).")
+
+    status = "success" if result.returncode == 0 else "error"
+    logger.info("Retrain finished with code %d", result.returncode)
+    return RetrainResponse(
+        status=status,
+        returncode=result.returncode,
+        stdout=result.stdout[-5000:],  # cap to avoid huge HTTP body
+        stderr=result.stderr[-5000:],
     )

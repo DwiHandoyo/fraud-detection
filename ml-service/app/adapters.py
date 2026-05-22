@@ -58,18 +58,53 @@ def _factorize_objects(X: pd.DataFrame) -> pd.DataFrame:
 
 
 class LGBMAdapter:
-    """Adapter for sklearn-API LightGBM classifier."""
+    """Adapter for sklearn-API LightGBM classifier.
+
+    Also implements the Explainer Protocol via SHAP TreeExplainer — so a
+    single LGBM instance can serve both /predict and /explain endpoints.
+    """
 
     def __init__(self, path: str, version: str = "1.0"):
         self.model = joblib.load(path)
         self.feature_names = list(self.model.feature_name_)
         self.name = "lgbm"
         self.version = version
+        # Build TreeExplainer once — first call is slow (~1s), subsequent
+        # calls reuse the cached tree structure.
+        try:
+            import shap
+            self._shap = shap.TreeExplainer(self.model)
+        except Exception:
+            self._shap = None
 
     def predict_proba(self, X: pd.DataFrame) -> list[float]:
         X_aligned = _align(X, self.feature_names)
         X_aligned = _factorize_objects(X_aligned)
         return self.model.predict_proba(X_aligned)[:, 1].tolist()
+
+    def explain(self, X: pd.DataFrame) -> list[list[dict]]:
+        if self._shap is None:
+            raise RuntimeError("SHAP TreeExplainer not initialized; install `shap`.")
+        X_aligned = _align(X, self.feature_names)
+        X_aligned = _factorize_objects(X_aligned)
+        shap_vals = self._shap.shap_values(X_aligned)
+        # Modern SHAP returns shape (n, n_features); older list-per-class
+        # returns [class0, class1] — we pick class 1 (fraud).
+        if isinstance(shap_vals, list):
+            shap_vals = shap_vals[1]
+        results = []
+        for i in range(len(X_aligned)):
+            row = [
+                {
+                    "feature": fname,
+                    "value": _coerce(X_aligned.iloc[i, j]),
+                    "contribution": float(shap_vals[i, j]),
+                }
+                for j, fname in enumerate(self.feature_names)
+            ]
+            row.sort(key=lambda r: abs(r["contribution"]), reverse=True)
+            results.append(row)
+        return results
 
 
 class EBMAdapter:

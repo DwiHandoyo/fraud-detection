@@ -299,6 +299,74 @@ def label_bulk_rows(row_ids: list[int], user_label: str, user_note: str = "") ->
         return 0
 
 
+# =====================================================================
+# Continuous training (page 8)
+# =====================================================================
+
+
+def list_training_jobs(limit: int = 50) -> list[dict[str, Any]]:
+    """Return recent training jobs for the Continuous Training page."""
+    if not AVAILABLE or _engine is None:
+        return []
+    try:
+        with _engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT id, ts, window_strategy, window_recent_days,
+                       window_history_sample, n_new_labels, n_old_labels,
+                       fraud_rate, model_version, model_path,
+                       val_auc, train_seconds, status, promoted_at, notes
+                FROM training_jobs
+                ORDER BY ts DESC
+                LIMIT :limit
+            """), {"limit": limit}).mappings().all()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        logger.warning("list_training_jobs failed: %s", e)
+        return []
+
+
+def mark_training_job(job_id: int, *, status: str, promoted_by: str = "ui") -> bool:
+    """Update status to 'promoted' or 'rejected'. Returns True if row updated."""
+    if not AVAILABLE or _engine is None:
+        return False
+    try:
+        with _engine.begin() as conn:
+            result = conn.execute(text("""
+                UPDATE training_jobs
+                SET status = :status,
+                    promoted_at = CASE WHEN :status = 'promoted' THEN NOW() ELSE promoted_at END,
+                    promoted_by = CASE WHEN :status = 'promoted' THEN :by ELSE promoted_by END
+                WHERE id = :id
+            """), {"status": status, "by": promoted_by, "id": job_id})
+            return (result.rowcount or 0) > 0
+    except Exception as e:
+        logger.warning("mark_training_job failed: %s", e)
+        return False
+
+
+def labeled_row_counts() -> dict[str, int | None]:
+    """Sanity counts for the Continuous Training page UI."""
+    if not AVAILABLE or _engine is None:
+        return {"total_labeled": None, "fraud": None, "legit": None,
+                "review": None, "blocked": None}
+    try:
+        with _engine.connect() as conn:
+            stats = conn.execute(text("""
+                SELECT
+                    COUNT(*) FILTER (WHERE user_label IS NOT NULL) AS total_labeled,
+                    COUNT(*) FILTER (WHERE user_label = 'fraud') AS fraud,
+                    COUNT(*) FILTER (WHERE user_label = 'legit') AS legit,
+                    COUNT(*) FILTER (WHERE user_label = 'review') AS review,
+                    COUNT(*) FILTER (WHERE user_label = 'blocked') AS blocked
+                FROM bulk_predictions
+            """)).mappings().first()
+            return {k: int(v) if v is not None else 0 for k, v in dict(stats).items()}
+    except Exception as e:
+        logger.warning("labeled_row_counts failed: %s", e)
+        return {"total_labeled": None, "fraud": None, "legit": None,
+                "review": None, "blocked": None}
+
+
 def dashboard_metrics(job_id: int | None = None) -> dict[str, Any]:
     """Summary stats for dashboard. If job_id is None, returns global stats."""
     if not AVAILABLE or _engine is None:

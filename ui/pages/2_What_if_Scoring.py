@@ -21,24 +21,8 @@ st.set_page_config(page_title="What-if Scoring", layout="wide")
 st.title("What-if Scoring")
 st.caption(
     "Audit / debug mode — isi fitur manual, lihat prediksi. "
-    "Menggunakan EBM (explainer) supaya perubahan fitur benar-benar terlihat."
+    "Model yang dipakai sama dengan Score by ID (lgbm_best, 107 fitur)."
 )
-
-with st.expander("Why are predictions different here vs Score by ID?", expanded=False):
-    st.markdown(
-        """
-        **What-if Scoring** memakai **EBM** (explainer model) — bukan LGBM.
-
-        - **LGBM** butuh 424 fitur lengkap (V1-V339, C1-C14, D1-D15, dll).
-          Form manual hanya cover ~10 fitur → 414 sisa default 0 → prediksi
-          nyaris konstan untuk perubahan kecil.
-        - **EBM** dibangun sebagai distillation dari LGBM dan hanya butuh
-          **25 identity features**. Form 10 input cover sebagian besar →
-          prediksi benar-benar bergeser saat fitur diubah.
-        - Untuk fraud probability transaksi nyata (production accuracy),
-          pakai **Score by ID** yang panggil LGBM dengan 424 fitur dari Feast.
-        """
-    )
 
 # Default values — sample yang realistic dari train_identity.csv.
 DEFAULTS = {

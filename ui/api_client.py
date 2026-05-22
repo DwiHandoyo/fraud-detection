@@ -49,6 +49,30 @@ def predict_manual(payload: dict) -> dict:
     return r.json()
 
 
+def trigger_retrain(
+    *,
+    recent_days: int = 30,
+    history_sample_rate: float = 0.20,
+    min_new_labels: int = 20,
+    quick: bool = True,
+    notes: str = "",
+) -> dict:
+    """Call /admin/retrain on ml-service. Blocks until retrain completes (1–10 min)."""
+    r = requests.post(
+        f"{ML_SERVICE_URL}/admin/retrain",
+        json={
+            "recent_days": recent_days,
+            "history_sample_rate": history_sample_rate,
+            "min_new_labels": min_new_labels,
+            "quick": quick,
+            "notes": notes,
+        },
+        timeout=900,  # match server-side 15 min timeout
+    )
+    r.raise_for_status()
+    return r.json()
+
+
 def explain_manual(payload: dict) -> dict:
     r = requests.post(f"{ML_SERVICE_URL}/explain", json=payload, timeout=TIMEOUT)
     r.raise_for_status()

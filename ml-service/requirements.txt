@@ -5,10 +5,11 @@ pyyaml
 joblib
 lightgbm
 interpret
-pandas
+shap
+pandas>=2.0,<3.0
 numpy
 scikit-learn
-feast[sqlite]
-pyarrow
+feast>=0.40
+pyarrow>=14
 sqlalchemy
 psycopg2-binary

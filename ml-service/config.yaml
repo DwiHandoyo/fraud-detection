@@ -1,13 +1,16 @@
 # Model configuration. Swap models by editing this file — no code change needed.
 predictor:
   type: lgbm
-  path: models/lgbm.pkl
-  version: "1.0"
+  path: models/lgbm_best.pkl
+  version: "best"
 
+# Same model as predictor — explanations come from SHAP TreeExplainer
+# (built into LGBMAdapter). Ensures /predict and /explain return the
+# same fraud_proba for the same input.
 explainer:
-  type: ebm
-  path: models/ebm.pkl
-  version: "1.0"
+  type: lgbm
+  path: models/lgbm_best.pkl
+  version: "best"
 
 # Currently unused (LGBM uses on-the-fly factorize, EBM ingests raw values).
 # Kept here for when a fitted preprocessor for the full feature set is available.
