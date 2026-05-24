@@ -429,8 +429,8 @@ dan [ui/pages/8_Continuous_Training.py](ui/pages/8_Continuous_Training.py).
 ```
                  ┌─────────────────────────┐
                  │  Streamlit UI (ui/)     │  http://localhost:8501
-                 │  4 pages: Score by ID,  │
-                 │  What-if, Audit, Status │
+                 │  3 pages: What-if,      │
+                 │  Audit, Status          │
                  └────────┬────────────────┘
                           │ HTTP
                           ▼

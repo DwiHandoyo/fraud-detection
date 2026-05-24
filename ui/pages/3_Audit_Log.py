@@ -52,7 +52,7 @@ records = read_decisions(
 )
 
 if not records:
-    st.info("Belum ada keputusan tercatat. Coba Score by ID atau What-if Scoring "
+    st.info("Belum ada keputusan tercatat. Coba What-if Scoring "
             "lalu klik Approve / Confirm / More-info.")
     st.stop()
 

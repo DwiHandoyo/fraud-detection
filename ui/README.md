@@ -8,7 +8,6 @@ Memenuhi spec IF5251 nomor **Architecture 2c** (human validation) +
 | File | Tujuan |
 |------|--------|
 | [`app.py`](app.py) | Landing — overview + service health banner |
-| [`pages/1_Score_by_ID.py`](pages/1_Score_by_ID.py) | Reviewer mode — lookup by transaction_id, gunakan Feast online store |
 | [`pages/2_What_if_Scoring.py`](pages/2_What_if_Scoring.py) | Audit mode — input fitur manual untuk skenario hipotetis |
 | [`pages/3_Audit_Log.py`](pages/3_Audit_Log.py) | History keputusan reviewer dengan filter + search + CSV export |
 | [`pages/4_Service_Status.py`](pages/4_Service_Status.py) | Health, model versions, OpenAPI docs links |
@@ -70,7 +69,7 @@ docker compose up -d   # dari root fraud-detection/
 }
 ```
 
-Field `source`: `by_id` (dari Score by ID page) atau `whatif` (dari What-if Scoring page).
+Field `source`: `whatif` (dari What-if Scoring page).
 Field `transaction_id`: `null` kalau `source = whatif` (tidak ada ID untuk skenario hipotetis).
 
 ## Adding a new page

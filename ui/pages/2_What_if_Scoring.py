@@ -21,7 +21,7 @@ st.set_page_config(page_title="What-if Scoring", layout="wide")
 st.title("What-if Scoring")
 st.caption(
     "Audit / debug mode — isi fitur manual, lihat prediksi. "
-    "Model yang dipakai sama dengan Score by ID (lgbm_best, 107 fitur)."
+    "Model: lgbm_best (107 fitur)."
 )
 
 # Default values — sample yang realistic dari train_identity.csv.

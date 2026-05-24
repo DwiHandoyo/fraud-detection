@@ -37,7 +37,6 @@ st.markdown(
 
 | Halaman | Tujuan |
 |---------|--------|
-| **Score by ID** | Reviewer mode — lookup transaksi yang sudah ada via Feast online store. Input: `transaction_id`. Cocok untuk demo flow production. |
 | **What-if Scoring** | Audit / debug mode — input fitur manual untuk eksplorasi skenario hipotetis. Cocok untuk reproducing test cases atau exploring model behavior. |
 | **Audit Log** | Lihat history keputusan reviewer (`decisions.jsonl`). Filter, search, export. |
 | **Service Status** | Detail health, model version, feature store status, prediction log info. |
@@ -47,31 +46,26 @@ st.markdown(
 ### Bagaimana sistem ini bekerja
 
 ```
-[Score by ID]                          [What-if Scoring]
-        |                                       |
-        v                                       v
-POST /predict_by_id              POST /predict
-        |                                       |
-        v                                       v
-   Feast online store           Pakai fitur dari request body
-   (33 features dari            (caller mengisi langsung)
-   transaction_id)
-        |                                       |
-        +-----------+---------------------------+
-                    |
-                    v
-            LGBM predictor
-            + EBM explainer
-                    |
-                    v
-            Response: probability,
-            label, per-feature breakdown
+[What-if Scoring]
+        |
+        v
+POST /predict
+        |
+        v
+Pakai fitur dari request body
+(caller mengisi langsung)
+        |
+        v
+LGBM predictor (+ SHAP explainer)
+        |
+        v
+Response: probability, label,
+per-feature breakdown
 ```
 
 ### Tips
 
-- Reviewer fraud sungguhan biasanya pakai **Score by ID** — transaksi sudah ada di sistem.
 - **What-if Scoring** untuk audit "kalau amount lebih besar, fraud-nya berubah?".
-- Sample TransactionID untuk dicoba: `2987004`, `2987008`, `2987010`, `2987016`, `2987017`.
+- Bulk Predict + Bulk Audit untuk batch scoring + reviewer labeling.
 """
 )
