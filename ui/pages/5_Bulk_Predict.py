@@ -150,11 +150,14 @@ if "active_job_id" in st.session_state:
     completed = 0
     failed = 0
     total = len(pending)
+    latencies_ms: list[float] = []
+    batch_started_at = time.perf_counter()
 
     for i, row in enumerate(pending):
         payload = row["request_payload"] if isinstance(row["request_payload"], dict) else {}
         # Strip non-feature fields (we re-fetch by_id only if explicitly desired).
         payload = {k: v for k, v in payload.items() if v is not None and k != "transaction_id"}
+        t0 = time.perf_counter()
         try:
             r = requests.post(
                 f"{ML_SERVICE_URL}/predict", json=payload, timeout=10,
@@ -167,6 +170,7 @@ if "active_job_id" in st.session_state:
                 predicted_label=resp["predicted_label"],
                 model=resp["model"],
             )
+            latencies_ms.append((time.perf_counter() - t0) * 1000.0)
             completed += 1
         except Exception as e:
             update_bulk_result(
@@ -176,10 +180,27 @@ if "active_job_id" in st.session_state:
             failed += 1
 
         progress.progress((i + 1) / total)
-        status_box.write(f"Processed {i + 1} / {total}  |  ✓ {completed}  |  ✗ {failed}")
+        avg_ms = sum(latencies_ms) / len(latencies_ms) if latencies_ms else 0.0
+        status_box.write(
+            f"Processed {i + 1} / {total}  |  ok {completed}  |  fail {failed}  "
+            f"|  avg latency {avg_ms:.1f} ms"
+        )
         time.sleep(0.02)  # gentle pacing, prevents UI lockup
 
     progress.empty()
-    status_box.success(f"Done. {completed} completed, {failed} failed.")
+    elapsed = time.perf_counter() - batch_started_at
+    if latencies_ms:
+        sorted_lat = sorted(latencies_ms)
+        p50 = sorted_lat[len(sorted_lat) // 2]
+        p95 = sorted_lat[min(len(sorted_lat) - 1, int(len(sorted_lat) * 0.95))]
+        avg_ms = sum(latencies_ms) / len(latencies_ms)
+        status_box.success(
+            f"Done. {completed} completed, {failed} failed.\n\n"
+            f"Total wall time: {elapsed:.1f}s  |  "
+            f"avg latency: {avg_ms:.1f} ms  |  "
+            f"p50: {p50:.1f} ms  |  p95: {p95:.1f} ms"
+        )
+    else:
+        status_box.success(f"Done. {completed} completed, {failed} failed.")
     time.sleep(1)
     st.rerun()

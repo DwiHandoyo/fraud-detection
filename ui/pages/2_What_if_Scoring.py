@@ -7,6 +7,8 @@ Input fitur manual untuk eksplorasi skenario hipotetis. Cocok untuk:
 """
 from __future__ import annotations
 
+import time
+
 import requests
 import streamlit as st
 
@@ -101,6 +103,7 @@ if submitted:
     }
 
     with st.spinner("Calling ml-service..."):
+        t0 = time.perf_counter()
         try:
             expl = explain_manual(payload)
         except requests.HTTPError as e:
@@ -109,6 +112,7 @@ if submitted:
             else:
                 st.error(f"ml-service error: {e}")
             st.stop()
+        latency_ms = (time.perf_counter() - t0) * 1000.0
 
     # /explain returns fraud_proba directly from EBM — derive PredictResponse shape.
     pred = {
@@ -122,6 +126,7 @@ if submitted:
     st.session_state["whatif_payload"] = payload
     st.session_state["whatif_pred"] = pred
     st.session_state["whatif_expl"] = expl
+    st.session_state["whatif_latency_ms"] = latency_ms
 
 if "whatif_pred" in st.session_state:
     pred = st.session_state["whatif_pred"]
@@ -130,6 +135,8 @@ if "whatif_pred" in st.session_state:
 
     st.divider()
     render_prediction_header(pred)
+    if "whatif_latency_ms" in st.session_state:
+        st.caption(f"Latency: {st.session_state['whatif_latency_ms']:.1f} ms (/explain endpoint, includes SHAP)")
 
     with st.expander("Request payload (debugging)", expanded=False):
         st.json(payload)
