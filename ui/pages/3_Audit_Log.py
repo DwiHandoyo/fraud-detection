@@ -68,15 +68,29 @@ c4.metric("Need more info", (df["decision"] == "need_more_info").sum())
 c5.metric("Blocked", (df["decision"] == "blocked").sum())
 
 st.divider()
+st.caption("Click any row, then click 'View detail' to inspect.")
 
 # Table.
 display_cols = ["ts", "transaction_id", "source", "decision", "model_proba", "model_label", "model", "note"]
 display_cols = [c for c in display_cols if c in df.columns]
-st.dataframe(
+event = st.dataframe(
     df[display_cols].style.format({"model_proba": "{:.3f}"}, na_rep="-"),
     use_container_width=True,
     height=500,
+    on_select="rerun",
+    selection_mode="single-row",
+    key="audit_log_table",
 )
+
+selected_rows = event.selection.rows if hasattr(event, "selection") else []
+if selected_rows:
+    sel_idx = selected_rows[0]
+    sel_decision_id = int(df.iloc[sel_idx]["id"])
+    sel_tid = df.iloc[sel_idx].get("transaction_id")
+    st.write(f"Selected: decision_id={sel_decision_id}, transaction_id={sel_tid}")
+    if st.button("View detail", type="primary"):
+        st.session_state["detail_decision_id"] = sel_decision_id
+        st.switch_page("pages/9_Decision_Detail.py")
 
 st.divider()
 csv = df.to_csv(index=False).encode("utf-8")

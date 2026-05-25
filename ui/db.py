@@ -74,6 +74,70 @@ def insert_decision(
         return None
 
 
+def get_decision_detail(decision_id: int) -> dict[str, Any] | None:
+    """Return decision row plus optional related bulk_predictions + predictions rows.
+
+    Returns a dict shaped like:
+        {
+            "decision": {<columns from decisions>},
+            "bulk_predictions": {<matching bulk_predictions row>} or None,
+            "predictions": [<matching predictions rows>] (most recent first),
+        }
+    """
+    if not AVAILABLE or _engine is None:
+        return None
+    try:
+        with _engine.connect() as conn:
+            d = conn.execute(
+                text("""
+                SELECT id, ts, transaction_id, source, decision, model_proba,
+                       model_label, model, note, prediction_id
+                FROM decisions
+                WHERE id = :id
+                """),
+                {"id": decision_id},
+            ).mappings().first()
+            if d is None:
+                return None
+            out: dict[str, Any] = {"decision": dict(d), "bulk_predictions": None, "predictions": []}
+
+            tid = d["transaction_id"]
+            source = d["source"]
+
+            if source == "bulk" and tid is not None:
+                bp = conn.execute(
+                    text("""
+                    SELECT id, job_id, job_filename, row_idx, ts, transaction_id,
+                           request_payload, status, fraud_proba, predicted_label,
+                           model, error, user_label, user_note, labeled_at
+                    FROM bulk_predictions
+                    WHERE transaction_id = :tid
+                    ORDER BY ts DESC LIMIT 1
+                    """),
+                    {"tid": tid},
+                ).mappings().first()
+                if bp is not None:
+                    out["bulk_predictions"] = dict(bp)
+
+            if tid is not None:
+                preds = conn.execute(
+                    text("""
+                    SELECT id, ts, source, transaction_id, fraud_proba,
+                           predicted_label, model, model_version, request_payload
+                    FROM predictions
+                    WHERE transaction_id = :tid
+                    ORDER BY ts DESC LIMIT 10
+                    """),
+                    {"tid": tid},
+                ).mappings().all()
+                out["predictions"] = [dict(p) for p in preds]
+
+            return out
+    except Exception as e:
+        logger.warning("get_decision_detail failed: %s", e)
+        return None
+
+
 def read_decisions(limit: int = 500, decision_filter: list[str] | None = None,
                    source_filter: list[str] | None = None, search: str = "") -> list[dict[str, Any]]:
     if not AVAILABLE or _engine is None:
