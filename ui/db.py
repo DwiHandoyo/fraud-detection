@@ -135,8 +135,25 @@ def _sanitize_for_json(obj):
     return obj
 
 
+def _isfraud_to_label(v) -> str | None:
+    """Map an isFraud value (0/1/"0"/"1"/"fraud"/"legit") to user_label canonical string."""
+    if v is None or v == "":
+        return None
+    try:
+        n = int(float(v))
+        return "fraud" if n == 1 else "legit" if n == 0 else None
+    except (TypeError, ValueError):
+        s = str(v).strip().lower()
+        return "fraud" if s in ("fraud", "true", "yes") else "legit" if s in ("legit", "false", "no") else None
+
+
 def create_bulk_job(filename: str, rows: list[dict[str, Any]]) -> int | None:
-    """Insert all rows as pending. Returns the new job_id, or None if DB unavailable."""
+    """Insert all rows as pending. Returns the new job_id, or None if DB unavailable.
+
+    If a row has an `isFraud` column (IEEE-CIS convention), it is stripped from
+    the request payload and promoted to user_label so Bulk Dashboard can compute
+    accuracy + confusion matrix automatically.
+    """
     if not AVAILABLE or _engine is None:
         return None
     job_id = int(time.time() * 1000)  # ms epoch as unique-enough job_id
@@ -144,14 +161,19 @@ def create_bulk_job(filename: str, rows: list[dict[str, Any]]) -> int | None:
         with _engine.begin() as conn:
             for idx, row in enumerate(rows):
                 transaction_id = row.get("transaction_id")
+                payload_row = {k: v for k, v in row.items() if k != "isFraud"}
+                user_label = _isfraud_to_label(row.get("isFraud"))
                 # PostgreSQL JSONB rejects literal NaN/Infinity tokens; coerce to null.
-                clean_row = _sanitize_for_json(row)
+                clean_row = _sanitize_for_json(payload_row)
                 conn.execute(
                     text("""
                     INSERT INTO bulk_predictions
-                        (job_id, job_filename, row_idx, transaction_id, request_payload, status)
+                        (job_id, job_filename, row_idx, transaction_id,
+                         request_payload, status, user_label, labeled_at)
                     VALUES
-                        (:job_id, :filename, :idx, :transaction_id, CAST(:payload AS JSONB), 'pending')
+                        (:job_id, :filename, :idx, :transaction_id,
+                         CAST(:payload AS JSONB), 'pending', :user_label,
+                         CASE WHEN :user_label IS NULL THEN NULL ELSE NOW() END)
                     """),
                     {
                         "job_id": job_id,
@@ -159,6 +181,7 @@ def create_bulk_job(filename: str, rows: list[dict[str, Any]]) -> int | None:
                         "idx": idx,
                         "transaction_id": int(transaction_id) if transaction_id else None,
                         "payload": _json.dumps(clean_row, default=str, allow_nan=False),
+                        "user_label": user_label,
                     },
                 )
         return job_id

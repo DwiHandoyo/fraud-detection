@@ -142,6 +142,91 @@ else:
     st.caption("Tidak ada completed rows. Process bulk job dulu di Bulk Predict.")
 
 # ============================================================
+# Model accuracy vs user_label (ground truth from isFraud column or Bulk Audit)
+# Only shown when at least one row has user_label set.
+# ============================================================
+def _label_str(predicted_label):
+    if predicted_label == 1:
+        return "fraud"
+    if predicted_label == 0:
+        return "legit"
+    return None
+
+
+labeled_rows = read_bulk_results(job_id, limit=10_000) if job_id is not None else []
+if not labeled_rows and job_id is None:
+    # Aggregate mode: pull recent N from any job
+    for j in jobs[:20]:
+        labeled_rows.extend(read_bulk_results(j["job_id"], limit=10_000))
+
+eval_df = pd.DataFrame([
+    r for r in labeled_rows
+    if r.get("status") == "completed"
+    and r.get("user_label") in ("fraud", "legit")
+    and r.get("predicted_label") in (0, 1)
+])
+
+if not eval_df.empty:
+    st.divider()
+    st.subheader("Model accuracy vs ground truth")
+    eval_df["pred_str"] = eval_df["predicted_label"].apply(_label_str)
+    tp = int(((eval_df["pred_str"] == "fraud") & (eval_df["user_label"] == "fraud")).sum())
+    fp = int(((eval_df["pred_str"] == "fraud") & (eval_df["user_label"] == "legit")).sum())
+    fn = int(((eval_df["pred_str"] == "legit") & (eval_df["user_label"] == "fraud")).sum())
+    tn = int(((eval_df["pred_str"] == "legit") & (eval_df["user_label"] == "legit")).sum())
+    n = tp + fp + fn + tn
+
+    accuracy = (tp + tn) / n if n else 0.0
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Evaluated", n)
+    m2.metric("Accuracy", f"{accuracy:.1%}")
+    m3.metric("Precision", f"{precision:.1%}")
+    m4.metric("Recall", f"{recall:.1%}")
+    m5.metric("F1", f"{f1:.1%}")
+
+    cm_left, cm_right = st.columns(2)
+    with cm_left:
+        st.caption("Confusion matrix (rows = actual, cols = predicted)")
+        cm_df = pd.DataFrame(
+            [[tn, fp], [fn, tp]],
+            index=pd.Index(["actual legit", "actual fraud"], name=""),
+            columns=["pred legit", "pred fraud"],
+        )
+        st.dataframe(cm_df, use_container_width=True)
+    with cm_right:
+        st.caption("Heatmap")
+        heat_df = pd.DataFrame([
+            {"actual": "legit", "predicted": "legit", "n": tn},
+            {"actual": "legit", "predicted": "fraud", "n": fp},
+            {"actual": "fraud", "predicted": "legit", "n": fn},
+            {"actual": "fraud", "predicted": "fraud", "n": tp},
+        ])
+        chart_cm = (
+            alt.Chart(heat_df)
+            .mark_rect()
+            .encode(
+                x=alt.X("predicted:N", sort=["legit", "fraud"]),
+                y=alt.Y("actual:N", sort=["legit", "fraud"]),
+                color=alt.Color("n:Q", scale=alt.Scale(scheme="blues")),
+                tooltip=["actual", "predicted", "n"],
+            )
+            .properties(height=180)
+        )
+        text_cm = chart_cm.mark_text(baseline="middle", fontSize=18).encode(
+            text="n:Q",
+            color=alt.condition(
+                "datum.n > " + str(max(tn, fp, fn, tp) / 2),
+                alt.value("white"), alt.value("black"),
+            ),
+        )
+        st.altair_chart(chart_cm + text_cm, use_container_width=True)
+
+
+# ============================================================
 # Recent rows preview
 # ============================================================
 if job_id is not None:

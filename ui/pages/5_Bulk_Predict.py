@@ -92,6 +92,12 @@ with tab_new:
         st.write(f"Detected columns: `{', '.join(df_input.columns[:10])}`"
                  + (" ..." if len(df_input.columns) > 10 else ""))
 
+        if "isFraud" in df_input.columns:
+            n_labeled = df_input["isFraud"].notna().sum()
+            st.info(f"`isFraud` column detected ({n_labeled} non-null). Akan dipakai sebagai "
+                    "ground truth → otomatis muncul confusion matrix di Bulk Dashboard. "
+                    "Kolom ini di-strip dari payload model.")
+
         if st.button("Submit for processing", type="primary"):
             rows = df_input.to_dict(orient="records")
             job_id = create_bulk_job(filename=uploaded.name, rows=rows)
