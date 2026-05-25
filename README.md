@@ -47,20 +47,13 @@ config + restart (lihat [Deploy artifact baru](#deploy-artifact-baru-ke-ml-servi
 
 ### Try-it-out walkthrough (5 menit)
 
-Untuk reviewer:
+Quick Setup:
 
 ```bash
 # 1. Clone + masuk folder
 git clone <repo-url> && cd fraud-detection
 
-# 2. Pre-flight (regen Feast online_store.db — wajib, ~30 detik)
-cd feature-store
-python seed_data.py
-./apply.sh
-./materialize.sh
-cd ..
-
-# 3. Start service
+# 2. Start service (Otomatis init Feature Store via container fraud-init-fs)
 docker compose up -d --build         # build pertama ~5 menit
 
 # 4. Test prediction (lookup features dari Feast)
@@ -91,14 +84,10 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r ../ml-service/requirements.txt -r ../feature-store/requirements.txt -r ../data-validation/requirements.txt -r ../ui/requirements.txt -r ../monitoring/requirements.txt -r ../fairness/requirements.txt -r ../qa-tests/requirements.txt
 
-# Seed feature store
-cd ../feature-store
-python seed_data.py
-./apply.sh
-./materialize.sh
 ```
 
 ### 2. Run service + UI (Docker)
+(Feature store seeding berjalan otomatis saat `docker compose up`)
 
 ```bash
 docker compose up -d

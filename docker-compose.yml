@@ -5,10 +5,6 @@
 #   open http://localhost:8501  (Streamlit UI)
 #   open http://localhost:8000/docs (FastAPI docs)
 #
-# REQUIRED PRE-FLIGHT (one-time, after clone):
-#   cd feature-store && python seed_data.py && ./apply.sh && ./materialize.sh
-# online_store.db is gitignored (965 MB > GitHub limit) and must be regenerated.
-#
 # Stop:   docker compose down
 # Reset volumes (lose decisions log + prediction log):
 #         docker compose down -v
@@ -36,6 +32,17 @@ services:
       start_period: 10s
     networks: [fraud-net]
 
+  init-feature-store:
+    build: ./ml-service
+    image: fraud-ml:0.1
+    container_name: fraud-init-fs
+    volumes:
+      - ./feature-store:/feature-store
+      - ./playground:/playground
+    command: >
+      bash -c "cd /feature-store && python seed_data.py && bash ./apply.sh && if [ ! -f feature_repo/data/online_store.db ]; then bash ./materialize.sh; else echo 'Online store exists, skipping materialize'; fi"
+    networks: [fraud-net]
+
   ml-service:
     build: ./ml-service
     image: fraud-ml:0.1
@@ -61,6 +68,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      init-feature-store:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

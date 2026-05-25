@@ -66,7 +66,8 @@ def main() -> None:
         print(f"[info] {TRANSACTION_CSV} Not found. Starting download from Google Drive...")
         try:
             # Download langsung diarahkan ke path TRANSACTION_CSV tujuan
-            gdown.download(gdrive_url, TRANSACTION_CSV, quiet=False)
+            # gdown.download(gdrive_url, TRANSACTION_CSV, quiet=False)
+            gdown.download(gdrive_url, str(TRANSACTION_CSV), quiet=False)
             print("[success] Download train_transaction.csv selesai.")
         except Exception as download_error:
             print(f"[error] Gagal mendownload file dari Google Drive. Details: {download_error}")
@@ -78,8 +79,7 @@ def main() -> None:
         train_identity = pd.read_csv(IDENTITY_CSV)
         print("[success] Successfully loaded train_transaction and train_identity.")
         
-        # Kembalikan dataframe atau lanjutkan proses setelah ini
-        return train_transaction, train_identity
+        # Lanjutkan proses setelah ini
         
     except FileNotFoundError as e:
         print(f"[error] Failed to locate raw CSV files in {PLAYGROUND}. Details: {e}")
