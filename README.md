@@ -37,17 +37,17 @@ config + restart (lihat [Deploy artifact baru](#deploy-artifact-baru-ke-ml-servi
 
 | File | Path | Ukuran | Status di repo | Dari mana |
 |------|------|--------|---------------|-----------|
-| `train_identity.csv` | `playground/train_identity.csv` | ~25 MB | ✅ committed | [Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data) |
-| `identity.parquet` (Feast offline) | `feature-store/feature_repo/data/identity.parquet` | ~5.7 MB | ✅ committed | Regen dari `train_identity.csv` via [seed_data.py](feature-store/seed_data.py) |
-| `online_store.db` (Feast online) | `feature-store/feature_repo/data/online_store.db` | ~965 MB | ❌ gitignored (>GitHub limit) | Regen via `./materialize.sh` |
-| `registry.db` (Feast metadata) | `feature-store/feature_repo/data/registry.db` | 3 KB | ❌ gitignored | Regen via `./apply.sh` |
-| `train_transaction.csv` | (tidak ada di repo) | ~470 MB | ❌ download manual | [Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data) — wajib untuk retrain LGBM |
-| `sample_10rows.csv` | `playground/sample_10rows.csv` | 2 KB | ✅ committed | Sample untuk smoke test |
-| Identity reports (HTML) | `data-validation/reports/`, `monitoring/reports/`, `fairness/reports/` | varies | ❌ gitignored | Regen via masing-masing `*.py` script |
+| `train_identity.csv` | `playground/train_identity.csv` | ~25 MB | committed | [Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data) |
+| `identity.parquet` (Feast offline) | `feature-store/feature_repo/data/identity.parquet` | ~5.7 MB | committed | Regen dari `train_identity.csv` via [seed_data.py](feature-store/seed_data.py) |
+| `online_store.db` (Feast online) | `feature-store/feature_repo/data/online_store.db` | ~965 MB | gitignored (>GitHub limit) | Regen via `./materialize.sh` |
+| `registry.db` (Feast metadata) | `feature-store/feature_repo/data/registry.db` | 3 KB | gitignored | Regen via `./apply.sh` |
+| `train_transaction.csv` | (tidak ada di repo) | ~470 MB | download manual | [Kaggle IEEE-CIS](https://www.kaggle.com/c/ieee-fraud-detection/data), wajib untuk retrain LGBM |
+| `sample_10rows.csv` | `playground/sample_10rows.csv` | 2 KB | committed | Sample untuk smoke test |
+| Identity reports (HTML) | `data-validation/reports/`, `monitoring/reports/`, `fairness/reports/` | varies | gitignored | Regen via masing-masing `*.py` script |
 
 ### Try-it-out walkthrough (5 menit)
 
-Untuk reviewer/dosen yang mau langsung cek sistemnya jalan tanpa baca semua section:
+Untuk reviewer:
 
 ```bash
 # 1. Clone + masuk folder
@@ -126,11 +126,11 @@ cd ../qa-tests && locust -f load_test.py --host http://localhost:8000 \
 
 ## Training
 
-### Big picture — Feast di training vs production
+### Feast di training vs production
 
-Feast adalah **satu sumber kebenaran** untuk fitur. Definisi `FeatureView` di
+Definisi `FeatureView` di
 [feature-store/feature_repo/features.py](feature-store/feature_repo/features.py)
-dipakai oleh **dua jalur** yang berbeda:
+dipakai dua jalur:
 
 ```
                         FeatureView (features.py)
@@ -155,8 +155,7 @@ dipakai oleh **dua jalur** yang berbeda:
   └──────────────────┘                    └──────────────────┘
 ```
 
-Definisi fitur sama → **tidak ada training/serving skew**. Memenuhi spec
-**Arch 2a**.
+Definisi fitur sama, jadi tidak ada training/serving skew (spec Arch 2a).
 
 ### Training scripts
 
@@ -164,9 +163,9 @@ Ada **3 artifact** yang dilatih, di-ranking dari yang paling sering diretrain:
 
 | Artifact | Script training | Butuh data lengkap? | Output |
 |----------|----------------|---------------------|--------|
-| **EBM** (explainer) | [`playground/ebm/train_ebm.py`](playground/ebm/train_ebm.py) | ❌ (mode distillation) | `ebm_model.pkl` |
-| **LGBM** (predictor) | [`playground/lgbm/train_lgbm.py`](playground/lgbm/train_lgbm.py) | ✅ butuh `train_transaction.csv` | `lgbm_model.pkl` + `label_encoders.pkl` |
-| **Preprocessor** | [`playground/preprocessing/fit_preprocessor.py`](playground/preprocessing/fit_preprocessor.py) | ❌ (identity-only) / ✅ (full) | `preprocessor.pkl` |
+| EBM (explainer) | [`playground/ebm/train_ebm.py`](playground/ebm/train_ebm.py) | tidak (mode distillation) | `ebm_model.pkl` |
+| LGBM (predictor) | [`playground/lgbm/train_lgbm.py`](playground/lgbm/train_lgbm.py) | ya, butuh `train_transaction.csv` | `lgbm_model.pkl` + `label_encoders.pkl` |
+| Preprocessor | [`playground/preprocessing/fit_preprocessor.py`](playground/preprocessing/fit_preprocessor.py) | identity-only atau full | `preprocessor.pkl` |
 
 ### Training pipeline (cara pakai Feast saat training)
 
@@ -200,15 +199,15 @@ X = training_df.drop(columns=["transaction_id", "event_timestamp", "isFraud"])
 model.fit(X, y)
 ```
 
-**Status saat ini:**
-- ✅ Feast offline store **sudah ready** — parquet ada di
+Status saat ini:
+- Feast offline store sudah ready, parquet ada di
   `feature-store/feature_repo/data/identity.parquet`
-- ⚠️ `playground/2025-05-01_Model.ipynb` (LGBM training) saat ini baca **langsung dari CSV**,
-  belum migrasi ke `get_historical_features()`
-- ⚠️ `playground/ebm/train_ebm.py` (EBM training) juga baca langsung dari CSV
-- 🟡 **Refactor opportunity**: ubah kedua training jalur supaya pakai
-  `get_historical_features()`. Demonstrasi konsistensi training/serving yang
-  lebih meyakinkan untuk laporan.
+- `playground/2025-05-01_Model.ipynb` (LGBM training) saat ini baca langsung
+  dari CSV, belum migrasi ke `get_historical_features()`
+- `playground/ebm/train_ebm.py` (EBM training) juga baca langsung dari CSV
+- Refactor opportunity: ubah kedua training jalur supaya pakai
+  `get_historical_features()` untuk demonstrasi konsistensi training/serving
+  yang lebih meyakinkan di laporan.
 
 ### Production pipeline (cara pakai Feast saat serving)
 
@@ -370,21 +369,21 @@ ml-service load model baru → /predict serve versi baru
 
 | Step | Otomatis | Manual |
 |------|----------|--------|
-| Bulk Audit klik button → DB write | ✅ | — |
-| Bulk Dashboard refresh visualization | ✅ | — |
-| Trigger retrain | — | ✅ user copy command |
-| Train LGBM + save versioned pkl | ✅ (dalam script) | — |
-| INSERT training_jobs row | ✅ | — |
-| Promote ke champion (DB update) | ✅ (button) | — |
-| Edit config.yaml + restart ml-service | — | ✅ user manual |
-| ml-service load model baru | ✅ (on startup) | — |
+| Bulk Audit klik button → DB write | ya | |
+| Bulk Dashboard refresh visualization | ya | |
+| Trigger retrain | | ya, user copy command |
+| Train LGBM + save versioned pkl | ya (dalam script) | |
+| INSERT training_jobs row | ya | |
+| Promote ke champion (DB update) | ya (button) | |
+| Edit config.yaml + restart ml-service | | ya, user manual |
+| ml-service load model baru | ya (on startup) | |
 
 #### Yang sengaja TIDAK otomatis
 
-- ❌ Auto-trigger retrain saat N labels terkumpul — reviewer kontrol kapan
-- ❌ Auto-promote saat AUC lebih baik — perlu sanity check manusia
-- ❌ Hot-reload model tanpa restart — keep deployment audit-trail jelas
-- ❌ Shadow mode (paralel run challenger) — disebut di FMEA sebagai future work
+- Auto-trigger retrain saat N labels terkumpul. Reviewer kontrol kapan.
+- Auto-promote saat AUC lebih baik. Perlu sanity check manusia.
+- Hot-reload model tanpa restart. Keep deployment audit-trail jelas.
+- Shadow mode (paralel run challenger). Future work, disebut di FMEA.
 
 #### Windowing strategy
 
@@ -478,19 +477,19 @@ Graceful fallback: kalau PostgreSQL down, ml-service + UI tetap berjalan
 
 | Spec | Status | Komponen |
 |------|--------|----------|
-| Req 1a — Komponen non-AI (DB, UI, API) | ✅ | [postgres/](postgres/) + [ui/](ui/) + [ml-service/](ml-service/) |
-| Req 1c — FMEA | ✅ | [docs/FMEA.md](docs/FMEA.md) |
-| Arch 2a — Feature Store (Feast) | ✅ | [feature-store/](feature-store/) |
-| Arch 2b — Microservice + container | ✅ | [ml-service/](ml-service/) |
-| Arch 2c — Human review UI | ✅ | [ui/](ui/) |
-| QA 3a — Data validation | ✅ | [data-validation/](data-validation/) |
-| QA 3b — Adversarial test | ✅ | [qa-tests/adversarial.py](qa-tests/adversarial.py) |
-| QA 3c — Load test | ✅ | [qa-tests/load_test.py](qa-tests/load_test.py) |
-| Ops 4a — CI/CD + continuous training | ✅ | [.github/workflows/ci.yml](.github/workflows/ci.yml) + [playground/lgbm/retrain_from_feedback.py](playground/lgbm/retrain_from_feedback.py) |
-| Ops 4b — Monitoring (Evidently) | ✅ | [monitoring/](monitoring/) |
-| RAI 5a — Fairness audit | ✅ | [fairness/](fairness/) |
-| RAI 5b — Explainability | ✅ | [ml-service/app/adapters.py](ml-service/app/adapters.py) `EBMAdapter.explain` |
-| RAI 5c — Encryption + model inversion | ⚠️ partial | dijelaskan di FMEA, mitigasi belum diimplementasi |
+| Req 1a, Komponen non-AI (DB, UI, API) | done | [postgres/](postgres/) + [ui/](ui/) + [ml-service/](ml-service/) |
+| Req 1c, FMEA | done | [docs/FMEA.md](docs/FMEA.md) |
+| Arch 2a, Feature Store (Feast) | done | [feature-store/](feature-store/) |
+| Arch 2b, Microservice + container | done | [ml-service/](ml-service/) |
+| Arch 2c, Human review UI | done | [ui/](ui/) |
+| QA 3a, Data validation | done | [data-validation/](data-validation/) |
+| QA 3b, Adversarial test | done | [qa-tests/adversarial.py](qa-tests/adversarial.py) |
+| QA 3c, Load test | done | [qa-tests/load_test.py](qa-tests/load_test.py) |
+| Ops 4a, CI/CD + continuous training | done | [.github/workflows/ci.yml](.github/workflows/ci.yml) + [playground/lgbm/retrain_from_feedback.py](playground/lgbm/retrain_from_feedback.py) |
+| Ops 4b, Monitoring (Evidently) | done | [monitoring/](monitoring/) |
+| RAI 5a, Fairness audit | done | [fairness/](fairness/) |
+| RAI 5b, Explainability | done | [ml-service/app/adapters.py](ml-service/app/adapters.py) `EBMAdapter.explain` |
+| RAI 5c, Encryption + model inversion | partial | dijelaskan di FMEA, mitigasi belum diimplementasi |
 
 ## Model architecture
 
