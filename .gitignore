@@ -49,6 +49,10 @@ ui/decisions.jsonl
 # Jupyter
 .ipynb_checkpoints/
 
+playground/train_transaction.csv
+
+
+
 # Logs
 *.log
 logs/

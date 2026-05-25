@@ -1,243 +1,0 @@
-
-F
-&
-__dummy"
-__dummy_idJfraud_detection
-ºï¿–¯◊Ï∫ºï¿–¯◊Ï∫
-ã
-k
-transaction;A single payment transaction (TransactionID from IEEE-CIS)."transaction_idJfraud_detection
-ºï¿–¯◊Ï∫ºï¿–¯◊Ï∫1"$05334dc0-7ee2-42b7-8ea2-1fb0324fdad2*éó¿–‡“Ño2–
-ò
-identity_viewfraud_detectiontransaction"
-TransactionAmt"
-	ProductCD"	
-card1"	
-card2"	
-card3"	
-card4"	
-card5"	
-card6"	
-addr1"	
-addr2"	
-dist1"	
-dist2"
-P_emaildomain"
-R_emaildomain"
-C1"
-C2"
-C3"
-C4"
-C5"
-C6"
-C7"
-C8"
-C9"
-C10"
-C11"
-C12"
-C13"
-C14"
-M1"
-M2"
-M3"
-M4"
-M5"
-M6"
-M7"
-M8"
-M9"
-V3"
-V17"
-V37"
-V56"
-V78"
-V127"
-V160"
-V162"
-V203"
-V209"
-V264"
-V271"
-V307"
-V314"
-V332"	
-id_01"	
-id_02"	
-id_03"	
-id_04"	
-id_05"	
-id_06"	
-id_09"	
-id_10"	
-id_11"	
-id_12"	
-id_13"	
-id_14"	
-id_15"	
-id_16"	
-id_17"	
-id_18"	
-id_19"	
-id_20"	
-id_28"	
-id_29"	
-id_30"	
-id_31"	
-id_32"	
-id_33"	
-id_34"	
-id_35"	
-id_36"	
-id_37"	
-id_38"
-
-DeviceType"
-D1_norm"
-D2_norm"
-D3_norm"
-D4_norm"
-D5_norm"
-D6_norm"
-D7_norm"
-D8_norm"
-D9_norm"
-D10_norm"
-D11_norm"
-D12_norm"
-D13_norm"
-D14_norm"
-D15_norm"
-Hour"
-	DayOfWeek"
-hour_fraud_status"
-	uid_count"
-Device_corp"
-cent"
-LogTransactionAmt"
-P_email_company"
-uid_amt_mean"
-uid_amt_std2ÄÜ∞ñ:Öevent_timestamp*created_timestampZdata/identity.parquetä1feast.infra.offline_stores.file_source.FileSource¢identity_source@b
-transaction_id3
-ºï¿–¯◊Ï∫éó¿–∏…∆n
-›èê∫‡ÿúêÄ»ıº:î
-Û
-
-identity_servicefraud_detectionÕ
-
-identity_view
-TransactionAmt
-	ProductCD	
-card1	
-card2	
-card3	
-card4	
-card5	
-card6	
-addr1	
-addr2	
-dist1	
-dist2
-P_emaildomain
-R_emaildomain
-C1
-C2
-C3
-C4
-C5
-C6
-C7
-C8
-C9
-C10
-C11
-C12
-C13
-C14
-M1
-M2
-M3
-M4
-M5
-M6
-M7
-M8
-M9
-V3
-V17
-V37
-V56
-V78
-V127
-V160
-V162
-V203
-V209
-V264
-V271
-V307
-V314
-V332	
-id_01	
-id_02	
-id_03	
-id_04	
-id_05	
-id_06	
-id_09	
-id_10	
-id_11	
-id_12	
-id_13	
-id_14	
-id_15	
-id_16	
-id_17	
-id_18	
-id_19	
-id_20	
-id_28	
-id_29	
-id_30	
-id_31	
-id_32	
-id_33	
-id_34	
-id_35	
-id_36	
-id_37	
-id_38
-
-DeviceType
-D1_norm
-D2_norm
-D3_norm
-D4_norm
-D5_norm
-D6_norm
-D7_norm
-D8_norm
-D9_norm
-D10_norm
-D11_norm
-D12_norm
-D13_norm
-D14_norm
-D15_norm
-Hour
-	DayOfWeek
-hour_fraud_status
-	uid_count
-Device_corp
-cent
-LogTransactionAmt
-P_email_company
-uid_amt_mean
-uid_amt_std*created_timestamp:created_timestampBQevent_timestamp*created_timestampZdata/identity.parquet¢identity_source
-ºï¿–Ë…™ªºï¿–Ë…™ªRì
-ê
-,feast.infra.online_stores.sqlite.SqliteTable"`
-?F:\2026_AI-Prod\feature-store\feature_repo\data\online_store.dbfraud_detection_identity_viewbóevent_timestamp*created_timestampZdata/identity.parquetä1feast.infra.offline_stores.file_source.FileSource¢identity_source™fraud_detectionä1
-
-fraud_detection
-ºï¿–òå∆õºï¿–òå∆õ
