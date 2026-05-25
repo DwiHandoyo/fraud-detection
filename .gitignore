@@ -30,6 +30,8 @@ feature-store/feature_repo/data/online_store.db
 feature-store/feature_repo/data/registry.db
 feature-store/feature_repo/data/online_store.db-*
 feature-store/feature_repo/test_feast.py
+feature-store/feature_repo/data/identity.parquet
+feature-store/feature_repo/data/identity_old.parquet
 feature-store/feature_repo/feature_store/
 
 # Great Expectations — regenerable from validate_dataset.py
