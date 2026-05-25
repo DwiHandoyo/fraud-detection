@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import streamlit as st
 
-from api_client import ML_SERVICE_URL, health
+from api_client import ML_SERVICE_URL, health, hide_sidebar_pages
 
 st.set_page_config(
     page_title="Fraud Detection — Home",
     page_icon=None,
     layout="wide",
 )
+hide_sidebar_pages("Decision_Detail")
 
 st.title("Fraud Detection — Operator Console")
 st.caption(f"Backend: `{ML_SERVICE_URL}`")

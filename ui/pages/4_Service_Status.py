@@ -8,9 +8,10 @@ import json
 
 import streamlit as st
 
-from api_client import DECISIONS_LOG, ML_SERVICE_URL, health
+from api_client import DECISIONS_LOG, ML_SERVICE_URL, health, hide_sidebar_pages
 
 st.set_page_config(page_title="Service Status", layout="wide")
+hide_sidebar_pages("Decision_Detail")
 st.title("Service Status")
 st.caption(f"Backend: `{ML_SERVICE_URL}`")
 

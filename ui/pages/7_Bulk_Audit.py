@@ -14,7 +14,10 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from api_client import hide_sidebar_pages
+
 st.set_page_config(page_title="Bulk Audit", layout="wide")
+hide_sidebar_pages("Decision_Detail")
 st.title("Bulk Audit")
 
 try:

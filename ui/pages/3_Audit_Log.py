@@ -8,9 +8,10 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from api_client import DECISIONS_LOG, read_decisions
+from api_client import DECISIONS_LOG, hide_sidebar_pages, read_decisions
 
 st.set_page_config(page_title="Audit Log", layout="wide")
+hide_sidebar_pages("Decision_Detail")
 st.title("Audit Log")
 
 # Indicate data source.
@@ -68,9 +69,9 @@ c4.metric("Need more info", (df["decision"] == "need_more_info").sum())
 c5.metric("Blocked", (df["decision"] == "blocked").sum())
 
 st.divider()
-st.caption("Click any row, then click 'View detail' to inspect.")
+st.caption("Klik baris mana saja untuk lihat detail.")
 
-# Table.
+# Table — clicking a row immediately navigates to detail page.
 display_cols = ["ts", "transaction_id", "source", "decision", "model_proba", "model_label", "model", "note"]
 display_cols = [c for c in display_cols if c in df.columns]
 event = st.dataframe(
@@ -85,12 +86,8 @@ event = st.dataframe(
 selected_rows = event.selection.rows if hasattr(event, "selection") else []
 if selected_rows:
     sel_idx = selected_rows[0]
-    sel_decision_id = int(df.iloc[sel_idx]["id"])
-    sel_tid = df.iloc[sel_idx].get("transaction_id")
-    st.write(f"Selected: decision_id={sel_decision_id}, transaction_id={sel_tid}")
-    if st.button("View detail", type="primary"):
-        st.session_state["detail_decision_id"] = sel_decision_id
-        st.switch_page("pages/9_Decision_Detail.py")
+    st.session_state["detail_decision_id"] = int(df.iloc[sel_idx]["id"])
+    st.switch_page("pages/9_Decision_Detail.py")
 
 st.divider()
 csv = df.to_csv(index=False).encode("utf-8")

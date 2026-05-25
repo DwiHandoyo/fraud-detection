@@ -17,6 +17,17 @@ TIMEOUT = 10
 LOW_CONF_RANGE = (0.30, 0.70)
 
 
+def hide_sidebar_pages(*url_substrings: str) -> None:
+    """Inject CSS to hide specific page links from Streamlit's auto-generated
+    sidebar nav. Match by href substring (Streamlit slug)."""
+    import streamlit as st
+    rules = "\n".join(
+        f'[data-testid="stSidebarNav"] a[href*="{s}"] {{ display: none !important; }}'
+        for s in url_substrings
+    )
+    st.markdown(f"<style>{rules}</style>", unsafe_allow_html=True)
+
+
 def health() -> dict:
     r = requests.get(f"{ML_SERVICE_URL}/health", timeout=TIMEOUT)
     r.raise_for_status()

@@ -14,9 +14,10 @@ import pandas as pd
 import requests
 import streamlit as st
 
-from api_client import ML_SERVICE_URL
+from api_client import ML_SERVICE_URL, hide_sidebar_pages
 
 st.set_page_config(page_title="Bulk Predict", layout="wide")
+hide_sidebar_pages("Decision_Detail")
 st.title("Bulk Predict")
 
 try:

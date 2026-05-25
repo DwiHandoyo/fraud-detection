@@ -14,12 +14,14 @@ import streamlit as st
 
 from api_client import (
     explain_manual,
+    hide_sidebar_pages,
     log_decision,
     render_explanation_chart,
     render_prediction_header,
 )
 
 st.set_page_config(page_title="What-if Scoring", layout="wide")
+hide_sidebar_pages("Decision_Detail")
 st.title("What-if Scoring")
 st.caption(
     "Audit / debug mode — isi fitur manual, lihat prediksi. "
