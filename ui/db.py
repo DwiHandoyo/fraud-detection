@@ -121,7 +121,18 @@ def row_counts() -> dict[str, int | None]:
 # =====================================================================
 
 import json as _json
+import math
 import time
+
+
+def _sanitize_for_json(obj):
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    return obj
 
 
 def create_bulk_job(filename: str, rows: list[dict[str, Any]]) -> int | None:
@@ -133,6 +144,8 @@ def create_bulk_job(filename: str, rows: list[dict[str, Any]]) -> int | None:
         with _engine.begin() as conn:
             for idx, row in enumerate(rows):
                 transaction_id = row.get("transaction_id")
+                # PostgreSQL JSONB rejects literal NaN/Infinity tokens; coerce to null.
+                clean_row = _sanitize_for_json(row)
                 conn.execute(
                     text("""
                     INSERT INTO bulk_predictions
@@ -145,7 +158,7 @@ def create_bulk_job(filename: str, rows: list[dict[str, Any]]) -> int | None:
                         "filename": filename,
                         "idx": idx,
                         "transaction_id": int(transaction_id) if transaction_id else None,
-                        "payload": _json.dumps(row, default=str),
+                        "payload": _json.dumps(clean_row, default=str, allow_nan=False),
                     },
                 )
         return job_id
