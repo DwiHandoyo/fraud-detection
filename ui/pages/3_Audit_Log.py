@@ -29,14 +29,14 @@ fc1, fc2, fc3 = st.columns([2, 2, 3])
 with fc1:
     decision_filter = st.multiselect(
         "Decision",
-        options=["approve_legit", "confirm_fraud", "need_more_info"],
+        options=["approve_legit", "confirm_fraud", "need_more_info", "blocked"],
         default=[],
         placeholder="All decisions",
     )
 with fc2:
     source_filter = st.multiselect(
         "Source",
-        options=["by_id", "whatif"],
+        options=["by_id", "whatif", "bulk"],
         default=[],
         placeholder="All sources",
     )
@@ -60,11 +60,12 @@ df = pd.DataFrame(records)
 df["ts"] = pd.to_datetime(df["ts"])
 
 # Metrics.
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Total (filtered)", len(df))
 c2.metric("Approved legit", (df["decision"] == "approve_legit").sum())
 c3.metric("Confirmed fraud", (df["decision"] == "confirm_fraud").sum())
 c4.metric("Need more info", (df["decision"] == "need_more_info").sum())
+c5.metric("Blocked", (df["decision"] == "blocked").sum())
 
 st.divider()
 

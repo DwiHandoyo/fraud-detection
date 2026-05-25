@@ -315,10 +315,23 @@ def read_bulk_results(
         return []
 
 
+_BULK_LABEL_TO_DECISION = {
+    "fraud": "confirm_fraud",
+    "legit": "approve_legit",
+    "review": "need_more_info",
+    "blocked": "blocked",
+}
+
+
 def label_bulk_rows(row_ids: list[int], user_label: str, user_note: str = "") -> int:
-    """Apply a label to many rows at once. Returns count of rows updated."""
+    """Apply a label to many rows at once. Returns count of rows updated.
+
+    Also writes one row per labeled item into the `decisions` audit log with
+    source='bulk' so Bulk Audit decisions show up in the Audit Log page.
+    """
     if not AVAILABLE or _engine is None or not row_ids:
         return 0
+    decision = _BULK_LABEL_TO_DECISION.get(user_label)
     try:
         with _engine.begin() as conn:
             result = conn.execute(
@@ -329,7 +342,22 @@ def label_bulk_rows(row_ids: list[int], user_label: str, user_note: str = "") ->
                 """),
                 {"label": user_label, "note": user_note, "ids": row_ids},
             )
-            return int(result.rowcount or 0)
+            n = int(result.rowcount or 0)
+
+            if decision and n > 0:
+                conn.execute(
+                    text("""
+                    INSERT INTO decisions
+                        (transaction_id, source, decision, model_proba,
+                         model_label, model, note)
+                    SELECT transaction_id, 'bulk', :decision, fraud_proba,
+                           predicted_label, model, :note
+                    FROM bulk_predictions
+                    WHERE id = ANY(:ids)
+                    """),
+                    {"decision": decision, "note": user_note, "ids": row_ids},
+                )
+            return n
     except Exception as e:
         logger.warning("label_bulk_rows failed: %s", e)
         return 0
