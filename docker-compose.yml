@@ -88,6 +88,7 @@ services:
       - "8501:8501"
     volumes:
       - decisions-data:/app/data
+      - ./monitoring/reports:/monitoring/reports:ro
     environment:
       ML_SERVICE_URL: http://ml-service:8000
       DECISIONS_LOG: /app/data/decisions.jsonl
