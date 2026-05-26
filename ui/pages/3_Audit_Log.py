@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pandas as pd
 import streamlit as st
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from api_client import DECISIONS_LOG, hide_sidebar_pages, read_decisions
 
@@ -71,22 +72,34 @@ c5.metric("Blocked", (df["decision"] == "blocked").sum())
 st.divider()
 st.caption("Klik baris mana saja untuk lihat detail.")
 
-# Table — clicking a row immediately navigates to detail page.
+# Table — clicking any cell selects the row and navigates to detail.
 display_cols = ["ts", "transaction_id", "source", "decision", "model_proba", "model_label", "model", "note"]
 display_cols = [c for c in display_cols if c in df.columns]
-event = st.dataframe(
-    df[display_cols].style.format({"model_proba": "{:.3f}"}, na_rep="-"),
-    use_container_width=True,
-    height=500,
-    on_select="rerun",
-    selection_mode="single-row",
-    key="audit_log_table",
+
+grid_df = df[["id", *display_cols]].copy()
+grid_df["ts"] = grid_df["ts"].dt.strftime("%Y-%m-%d %H:%M:%S")
+grid_df["model_proba"] = grid_df["model_proba"].map(
+    lambda v: f"{v:.3f}" if pd.notna(v) else "-"
 )
 
-selected_rows = event.selection.rows if hasattr(event, "selection") else []
-if selected_rows:
-    sel_idx = selected_rows[0]
-    st.session_state["detail_decision_id"] = int(df.iloc[sel_idx]["id"])
+gb = GridOptionsBuilder.from_dataframe(grid_df)
+gb.configure_selection(selection_mode="single", use_checkbox=False)
+gb.configure_default_column(sortable=True, filter=False, resizable=True)
+gb.configure_column("id", hide=True)
+grid_response = AgGrid(
+    grid_df,
+    gridOptions=gb.build(),
+    update_mode=GridUpdateMode.SELECTION_CHANGED,
+    height=500,
+    fit_columns_on_grid_load=True,
+    allow_unsafe_jscode=True,
+    key="audit_log_aggrid",
+)
+
+selected = grid_response.get("selected_rows")
+if selected is not None and len(selected) > 0:
+    sel_row = selected.iloc[0] if hasattr(selected, "iloc") else selected[0]
+    st.session_state["detail_decision_id"] = int(sel_row["id"])
     st.switch_page("pages/9_Decision_Detail.py")
 
 st.divider()
