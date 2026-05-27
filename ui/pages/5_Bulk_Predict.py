@@ -7,7 +7,6 @@ dan bisa di-resume.
 """
 from __future__ import annotations
 
-import io
 import time
 
 import pandas as pd
@@ -101,11 +100,19 @@ with tab_new:
 
         if st.button("Submit for processing", type="primary"):
             rows = df_input.to_dict(orient="records")
-            job_id = create_bulk_job(filename=uploaded.name, rows=rows)
-            if job_id is None:
-                st.error("Failed to create job.")
-                st.stop()
-            st.success(f"Created job {job_id} with {len(rows)} pending rows.")
+            # Long inserts make Streamlit's "running" overlay sit on the page
+            # without progress feedback; wrap with st.status so the user sees
+            # what's happening between click and rerun.
+            with st.status(f"Saving {len(rows)} rows ...", expanded=False) as status:
+                job_id = create_bulk_job(filename=uploaded.name, rows=rows)
+                if job_id is None:
+                    status.update(label="Failed to create job.", state="error")
+                    st.error("Failed to create job.")
+                    st.stop()
+                status.update(
+                    label=f"Job {job_id} created with {len(rows)} pending rows.",
+                    state="complete",
+                )
             st.session_state["active_job_id"] = job_id
             st.session_state["resume_mode"] = False
             st.rerun()
