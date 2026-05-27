@@ -136,6 +136,7 @@ def health() -> HealthResponse:
         explainer=f"{explainer.name}/{explainer.version}",
         n_predictor_features=len(predictor.feature_names),
         n_explainer_features=len(explainer.feature_names),
+        threshold=threshold,
     )
 
 

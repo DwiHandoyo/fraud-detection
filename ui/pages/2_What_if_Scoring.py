@@ -14,6 +14,7 @@ import streamlit as st
 
 from api_client import (
     explain_manual,
+    health,
     hide_sidebar_pages,
     log_decision,
     render_explanation_chart,
@@ -116,11 +117,19 @@ if submitted:
             st.stop()
         latency_ms = (time.perf_counter() - t0) * 1000.0
 
-    # /explain returns fraud_proba directly from EBM — derive PredictResponse shape.
+    # /explain returns fraud_proba directly — derive PredictResponse shape.
+    # Threshold comes from ml-service /health (single source of truth), cached
+    # in session_state to avoid hitting /health on every interaction.
+    if "ml_threshold" not in st.session_state:
+        try:
+            st.session_state["ml_threshold"] = float(health().get("threshold", 0.5))
+        except Exception:
+            st.session_state["ml_threshold"] = 0.5
+    t = st.session_state["ml_threshold"]
     pred = {
         "fraud_proba": expl["fraud_proba"],
-        "predicted_label": int(expl["fraud_proba"] >= 0.5),
-        "threshold": 0.5,
+        "predicted_label": int(expl["fraud_proba"] >= t),
+        "threshold": t,
         "model": expl["model"],
         "version": expl["version"],
     }

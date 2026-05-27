@@ -24,9 +24,11 @@ try:
     c2.metric("Predictor", h["predictor"])
     c3.metric("Explainer", h["explainer"])
 
-    c4, c5 = st.columns(2)
+    c4, c5, c6 = st.columns(3)
     c4.metric("Predictor features", h["n_predictor_features"])
     c5.metric("Explainer features", h["n_explainer_features"])
+    c6.metric("Threshold", f"{h.get('threshold', 0.5):.2f}",
+              help="Boundary fraud_proba untuk predicted_label=1. Konfigurasi di ml-service/config.yaml.")
 
     with st.expander("Raw /health response", expanded=False):
         st.code(json.dumps(h, indent=2), language="json")

@@ -96,3 +96,4 @@ class HealthResponse(BaseModel):
     explainer: str
     n_predictor_features: int
     n_explainer_features: int
+    threshold: float
